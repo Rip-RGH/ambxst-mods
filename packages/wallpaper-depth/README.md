@@ -16,7 +16,7 @@ curl -L -o model.onnx \
 ## Install
 
 ```
-ambxst mods install https://github.com/Rip-RGH/ambxst-mods/packages/wallpaper-depth
+ambxst mods install https://github.com/Rip-RGH/ambxst-mods/tree/main/packages/wallpaper-depth
 ambxst mods enable rip-rgh.wallpaper-depth
 ambxst reload
 ```
