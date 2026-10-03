@@ -1,0 +1,40 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Axenide/Ambxst/dev/docs/mods/settings.schema.json",
+  "version": 1,
+  "fields": [
+    {
+      "key": "enabled",
+      "label": "Depth effect",
+      "description": "Draw the clock behind the wallpaper's foreground. Turn off to keep the mod installed without the effect.",
+      "type": "boolean",
+      "default": true
+    },
+    {
+      "key": "threshold",
+      "label": "Foreground threshold",
+      "description": "How close something has to be to count as foreground, from 0 to 100. Lower values cut out more of the scene. Changing this reuses the cached depth map, so it is fast.",
+      "type": "integer",
+      "default": 30,
+      "minimum": 0,
+      "maximum": 100
+    },
+    {
+      "key": "feather",
+      "label": "Edge softness",
+      "description": "Blur radius in pixels around the cutout edge, from 0 (hard) to 50 (very soft).",
+      "type": "integer",
+      "default": 8,
+      "minimum": 0,
+      "maximum": 50
+    },
+    {
+      "key": "clockSize",
+      "label": "Clock size, percent of screen height",
+      "description": "Height of the clock text relative to the screen.",
+      "type": "integer",
+      "default": 22,
+      "minimum": 5,
+      "maximum": 40
+    }
+  ]
+}

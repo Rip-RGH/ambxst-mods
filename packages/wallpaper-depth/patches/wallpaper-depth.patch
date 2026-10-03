@@ -1,0 +1,16 @@
+diff --git a/modules/widgets/dashboard/wallpapers/Wallpaper.qml b/modules/widgets/dashboard/wallpapers/Wallpaper.qml
+index 099acb0..15d7bcf 100644
+--- a/modules/widgets/dashboard/wallpapers/Wallpaper.qml
++++ b/modules/widgets/dashboard/wallpapers/Wallpaper.qml
+@@ -1236,4 +1236,11 @@ PanelWindow {
+             }
+         }
+     }
++
++    // wallpaper-depth: clock behind a cutout of the wallpaper foreground
++    DepthLayer {
++        anchors.fill: parent
++        z: 1
++        source: wallpaper.getFileType(wallpaper.effectiveWallpaper) === "image" ? wallpaper.effectiveWallpaper : ""
++    }
+ }

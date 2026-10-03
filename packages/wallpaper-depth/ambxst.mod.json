@@ -1,0 +1,40 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Axenide/Ambxst/dev/docs/mods/manifest.schema.json",
+  "manifestVersion": 1,
+  "id": "rip-rgh.wallpaper-depth",
+  "name": "Wallpaper Depth",
+  "version": "0.1.5",
+  "description": "Depth effect for static image wallpapers: a clock is drawn between the wallpaper and a cutout of its foreground, so scenery passes in front of it. Depth is estimated locally with Depth Anything V2 Small.",
+  "license": "MIT",
+  "author": "rip-rgh",
+  "compatibility": {
+    "api": 1,
+    "ambxst": ">=1.3.0 <2.0.0"
+  },
+  "dependencies": [],
+  "conflicts": [],
+  "commands": [],
+  "permissions": [
+    "Runs a local Python script that reads your wallpaper images and writes cutout PNGs and depth maps under ~/.cache/ambxst/depth",
+    "Needs a depth model file at ~/.local/share/ambxst/depth/model.onnx (downloaded manually, never fetched by the mod)"
+  ],
+  "settings": {
+    "schema": "settings.json"
+  },
+  "operations": [
+    {
+      "type": "overlay",
+      "source": "payload/DepthLayer.qml",
+      "target": "modules/widgets/dashboard/wallpapers/DepthLayer.qml"
+    },
+    {
+      "type": "overlay",
+      "source": "payload/depth.py",
+      "target": "modules/widgets/dashboard/wallpapers/depth.py"
+    },
+    {
+      "type": "patch",
+      "source": "patches/wallpaper-depth.patch"
+    }
+  ]
+}
