@@ -23,6 +23,9 @@ Item {
     property int feather: 8         // px
     property int clockSize: 22      // % of screen height
     property string clockColor: "auto"   // auto | light | dark | theme
+    property string clockPosition: "center"
+    property int offsetX: 0         // % of screen width, fine-tune on top of the preset
+    property int offsetY: 0         // % of screen height
     property bool settingsLoaded: false
     property int settingsTries: 0
 
@@ -37,6 +40,12 @@ Item {
             clockSize = Number(value);
         else if (key === "clockColor")
             clockColor = String(value);
+        else if (key === "clockPosition")
+            clockPosition = String(value);
+        else if (key === "offsetX")
+            offsetX = Number(value);
+        else if (key === "offsetY")
+            offsetY = Number(value);
     }
 
     function loadSettings() {
@@ -71,6 +80,43 @@ Item {
         }
     }
 
+    // ---- Clock placement -------------------------------------------------
+    // Preset = (horizontal, vertical) as 0 / 0.5 / 1 across the screen. Edge
+    // presets keep a margin; offsetX/offsetY then nudge in percent of the screen.
+    readonly property var presets: ({
+        topLeft: [0, 0], topCenter: [0.5, 0], topRight: [1, 0],
+        centerLeft: [0, 0.5], center: [0.5, 0.5], centerRight: [1, 0.5],
+        bottomLeft: [0, 1], bottomCenter: [0.5, 1], bottomRight: [1, 1]
+    })
+    readonly property var anchorFrac: presets[clockPosition] || presets.center
+    readonly property real marginX: width * 0.05
+    readonly property real marginY: height * 0.06
+
+    function clamp(v, lo, hi) {
+        return Math.max(lo, Math.min(hi, v));
+    }
+
+    readonly property real clockX: clamp(
+        marginX + (width - clockText.width - 2 * marginX) * anchorFrac[0] + width * offsetX / 100,
+        0, Math.max(0, width - clockText.width))
+    readonly property real clockY: clamp(
+        marginY + (height - clockText.height - 2 * marginY) * anchorFrac[1] + height * offsetY / 100,
+        0, Math.max(0, height - clockText.height))
+
+    // Clock centre as whole percents of the screen: depth.py measures the
+    // wallpaper brightness there. Debounced so dragging a value doesn't spam it.
+    readonly property int clockCx: width > 0 ? Math.round((clockX + clockText.width / 2) / width * 100) : 50
+    readonly property int clockCy: height > 0 ? Math.round((clockY + clockText.height / 2) / height * 100) : 50
+    onClockCxChanged: remeasure.restart()
+    onClockCyChanged: remeasure.restart()
+    onClockSizeChanged: remeasure.restart()
+
+    Timer {
+        id: remeasure
+        interval: 250
+        onTriggered: root.generate(true)
+    }
+
     // Relative luminance of the visible background behind the clock, reported
     // by depth.py (-1 = not measured yet). 0.179 is where black and white text
     // have equal contrast, so brighter than that gets dark text.
@@ -103,13 +149,13 @@ Item {
         // Prefer the venv python if the user set one up, else system python3.
         gen.command = ["sh", "-c",
             'PY="$HOME/.local/share/ambxst/depth/venv/bin/python"; [ -x "$PY" ] || PY=python3; exec "$PY" "$@"',
-            "sh", script, source, cutout, String(threshold), String(feather), String(clockSize)];
+            "sh", script, source, cutout, String(threshold), String(feather), String(clockSize),
+            String(clockCx), String(clockCy)];
         gen.running = true;
     }
 
     onCutoutChanged: generate()
     onEffectEnabledChanged: generate()
-    onClockSizeChanged: generate(true)      // luminance region follows the text size
     Component.onCompleted: loadSettings()
 
     opacity: fg.status === Image.Ready ? 1 : 0
@@ -129,7 +175,23 @@ Item {
 
     // layer 1: the clock (behind the cutout)
     Text {
-        anchors.centerIn: parent
+        id: clockText
+        x: root.clockX
+        y: root.clockY
+        Behavior on x {
+            enabled: root.settingsLoaded && Config.animDuration > 0
+            NumberAnimation {
+                duration: Config.animDuration
+                easing.type: Easing.OutCubic
+            }
+        }
+        Behavior on y {
+            enabled: root.settingsLoaded && Config.animDuration > 0
+            NumberAnimation {
+                duration: Config.animDuration
+                easing.type: Easing.OutCubic
+            }
+        }
         text: Qt.formatDateTime(clock.date, "hh:mm")
         color: root.clockFill
         Behavior on color {

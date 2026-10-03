@@ -2,7 +2,9 @@
 """Wallpaper Depth: build an RGBA foreground cutout of a wallpaper, and measure
 how bright the wallpaper is behind the clock so the QML can pick text colour.
 
-usage: depth.py <wallpaper> <out.png> <threshold 0-100> <feather px> <clock size %>
+usage: depth.py <wallpaper> <out.png> <threshold 0-100> <feather px> <clock size %> <clock x %> <clock y %>
+
+(clock x/y = centre of the clock as a percentage of the screen)
 
 Prints one number on stdout: relative luminance (0 = black, 1 = white) of the
 visible background behind the clock.
@@ -16,8 +18,9 @@ import sys
 
 wall, out = sys.argv[1], sys.argv[2]
 threshold, feather, clock = int(sys.argv[3]), float(sys.argv[4]), int(sys.argv[5])
+cx, cy = int(sys.argv[6]) / 100.0, int(sys.argv[7]) / 100.0
 
-lum_path = os.path.splitext(out)[0] + f"-c{clock}.lum"
+lum_path = os.path.splitext(out)[0] + f"-c{clock}-x{int(cx * 100)}-y{int(cy * 100)}.lum"
 
 
 def write_atomic(path, data, binary=False):
@@ -43,12 +46,14 @@ os.makedirs(CACHE, exist_ok=True)
 img = Image.open(wall).convert("RGB")
 
 
-def clock_luminance(img, alpha, clock):
+def clock_luminance(img, alpha, clock, cx, cy):
     """Median linear luminance of the background pixels behind the clock."""
     W, H = img.size
     hy = max(clock * 0.6 / 100, 0.02)                      # half text height
     hx = min(max(clock * 1.4 / 100 * H / W, 0.04), 0.45)   # half text width
-    box = (int(W * (0.5 - hx)), int(H * (0.5 - hy)), int(W * (0.5 + hx)), int(H * (0.5 + hy)))
+    x0, x1 = max(0.0, cx - hx), min(1.0, cx + hx)
+    y0, y1 = max(0.0, cy - hy), min(1.0, cy + hy)
+    box = (int(W * x0), int(H * y0), max(int(W * x1), int(W * x0) + 1), max(int(H * y1), int(H * y0) + 1))
     rgb = img.crop(box)
     a = alpha.crop(box)
     rgb.thumbnail((96, 96))
@@ -102,6 +107,6 @@ else:
     cut.save(tmp, format="PNG")
     os.replace(tmp, out)
 
-L = clock_luminance(img, alpha, clock)
+L = clock_luminance(img, alpha, clock, cx, cy)
 write_atomic(lum_path, f"{L:.4f}\n")
 print(f"{L:.4f}")

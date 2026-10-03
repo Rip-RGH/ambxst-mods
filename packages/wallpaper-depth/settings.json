@@ -10,21 +10,66 @@
       "default": true
     },
     {
-      "key": "threshold",
-      "label": "Foreground threshold",
-      "description": "How close something has to be to count as foreground, from 0 to 100. Lower values cut out more of the scene. Changing this reuses the cached depth map, so it is fast.",
-      "type": "integer",
-      "default": 30,
-      "minimum": 0,
-      "maximum": 100
+      "key": "clockPosition",
+      "label": "Clock position",
+      "description": "Where the clock sits on the screen. Use the offsets below to nudge it from there.",
+      "type": "enum",
+      "default": "center",
+      "options": [
+        {
+          "label": "Top left",
+          "value": "topLeft"
+        },
+        {
+          "label": "Top center",
+          "value": "topCenter"
+        },
+        {
+          "label": "Top right",
+          "value": "topRight"
+        },
+        {
+          "label": "Middle left",
+          "value": "centerLeft"
+        },
+        {
+          "label": "Center",
+          "value": "center"
+        },
+        {
+          "label": "Middle right",
+          "value": "centerRight"
+        },
+        {
+          "label": "Bottom left",
+          "value": "bottomLeft"
+        },
+        {
+          "label": "Bottom center",
+          "value": "bottomCenter"
+        },
+        {
+          "label": "Bottom right",
+          "value": "bottomRight"
+        }
+      ]
     },
     {
-      "key": "feather",
-      "label": "Edge softness",
-      "description": "Blur radius in pixels around the cutout edge, from 0 (hard) to 50 (very soft).",
+      "key": "offsetX",
+      "label": "Horizontal offset, percent of screen width",
+      "description": "Moves the clock sideways from the chosen position. Negative is left, positive is right.",
       "type": "integer",
-      "default": 8,
-      "minimum": 0,
+      "default": 0,
+      "minimum": -50,
+      "maximum": 50
+    },
+    {
+      "key": "offsetY",
+      "label": "Vertical offset, percent of screen height",
+      "description": "Moves the clock up or down from the chosen position. Negative is up, positive is down.",
+      "type": "integer",
+      "default": 0,
+      "minimum": -50,
       "maximum": 50
     },
     {
@@ -60,6 +105,24 @@
           "value": "theme"
         }
       ]
+    },
+    {
+      "key": "threshold",
+      "label": "Foreground threshold",
+      "description": "How close something has to be to count as foreground, from 0 to 100. Lower values cut out more of the scene. Changing this reuses the cached depth map, so it is fast.",
+      "type": "integer",
+      "default": 30,
+      "minimum": 0,
+      "maximum": 100
+    },
+    {
+      "key": "feather",
+      "label": "Edge softness",
+      "description": "Blur radius in pixels around the cutout edge, from 0 (hard) to 50 (very soft).",
+      "type": "integer",
+      "default": 8,
+      "minimum": 0,
+      "maximum": 50
     }
   ]
 }
