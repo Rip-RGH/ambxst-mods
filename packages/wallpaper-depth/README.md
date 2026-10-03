@@ -16,13 +16,10 @@ curl -L -o model.onnx \
 ## Install
 
 ```
-ambxst mods install ./wallpaper-depth
-ambxst mods enable yourname.wallpaper-depth
+ambxst mods install https://github.com/Rip-RGH/ambxst-mods/packages/wallpaper-depth
+ambxst mods enable rip-rgh.wallpaper-depth
 ambxst reload
 ```
-
-Change `id` and `author` in `ambxst.mod.json` first, and set the same id in `modId`
-at the top of `payload/DepthLayer.qml` (settings are looked up by that id).
 
 ## Tuning
 
