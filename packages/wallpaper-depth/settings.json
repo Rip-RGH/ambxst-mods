@@ -35,6 +35,31 @@
       "default": 22,
       "minimum": 5,
       "maximum": 40
+    },
+    {
+      "key": "clockColor",
+      "label": "Clock color",
+      "description": "Auto picks light or dark text from how bright the wallpaper is behind the clock. The other options force one color, or follow your theme.",
+      "type": "enum",
+      "default": "auto",
+      "options": [
+        {
+          "label": "Auto (match wallpaper)",
+          "value": "auto"
+        },
+        {
+          "label": "Light",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Theme",
+          "value": "theme"
+        }
+      ]
     }
   ]
 }

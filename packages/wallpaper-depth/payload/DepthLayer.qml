@@ -22,6 +22,7 @@ Item {
     property int threshold: 30      // 0-100
     property int feather: 8         // px
     property int clockSize: 22      // % of screen height
+    property string clockColor: "auto"   // auto | light | dark | theme
     property bool settingsLoaded: false
     property int settingsTries: 0
 
@@ -34,6 +35,8 @@ Item {
             feather = Number(value);
         else if (key === "clockSize")
             clockSize = Number(value);
+        else if (key === "clockColor")
+            clockColor = String(value);
     }
 
     function loadSettings() {
@@ -68,6 +71,19 @@ Item {
         }
     }
 
+    // Relative luminance of the visible background behind the clock, reported
+    // by depth.py (-1 = not measured yet). 0.179 is where black and white text
+    // have equal contrast, so brighter than that gets dark text.
+    property real luminance: -1
+    readonly property color darkText: "#161616"
+    readonly property color lightText: "#f4f4f4"
+    readonly property color clockFill: {
+        if (clockColor === "light") return lightText;
+        if (clockColor === "dark") return darkText;
+        if (clockColor === "theme" || luminance < 0) return Colors.overBackground;
+        return luminance > 0.179 ? darkText : lightText;
+    }
+
     property bool ready: false
     property bool pending: false
 
@@ -75,8 +91,9 @@ Item {
         + Qt.md5(source) + "-" + threshold + "-" + feather + ".png"
     readonly property string script: Qt.resolvedUrl("depth.py").toString().replace("file://", "")
 
-    function generate() {
-        ready = false;
+    function generate(keepVisible) {
+        if (!keepVisible)
+            ready = false;
         if (!settingsLoaded || !source || !effectEnabled)
             return;
         if (gen.running) {
@@ -86,12 +103,13 @@ Item {
         // Prefer the venv python if the user set one up, else system python3.
         gen.command = ["sh", "-c",
             'PY="$HOME/.local/share/ambxst/depth/venv/bin/python"; [ -x "$PY" ] || PY=python3; exec "$PY" "$@"',
-            "sh", script, source, cutout, String(threshold), String(feather)];
+            "sh", script, source, cutout, String(threshold), String(feather), String(clockSize)];
         gen.running = true;
     }
 
     onCutoutChanged: generate()
     onEffectEnabledChanged: generate()
+    onClockSizeChanged: generate(true)      // luminance region follows the text size
     Component.onCompleted: loadSettings()
 
     opacity: fg.status === Image.Ready ? 1 : 0
@@ -113,7 +131,13 @@ Item {
     Text {
         anchors.centerIn: parent
         text: Qt.formatDateTime(clock.date, "hh:mm")
-        color: Colors.overBackground
+        color: root.clockFill
+        Behavior on color {
+            ColorAnimation {
+                duration: Config.animDuration
+                easing.type: Easing.OutCubic
+            }
+        }
         opacity: 0.9
         font.pixelSize: root.height * root.clockSize / 100
         font.weight: Font.Bold
@@ -135,6 +159,13 @@ Item {
 
     Process {
         id: gen
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const v = parseFloat(text);
+                if (!isNaN(v))
+                    root.luminance = v;
+            }
+        }
         stderr: StdioCollector {
             onStreamFinished: {
                 if (text.length > 0)
