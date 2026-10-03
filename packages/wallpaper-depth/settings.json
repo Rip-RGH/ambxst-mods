@@ -10,6 +10,128 @@
       "default": true
     },
     {
+      "key": "clockFormat",
+      "label": "Clock format",
+      "description": "How the time is written. Pick Custom to use your own format below.",
+      "type": "enum",
+      "default": "h24",
+      "options": [
+        {
+          "label": "24-hour (14:05)",
+          "value": "h24"
+        },
+        {
+          "label": "24-hour with seconds (14:05:09)",
+          "value": "h24s"
+        },
+        {
+          "label": "12-hour (2:05 PM)",
+          "value": "h12"
+        },
+        {
+          "label": "12-hour with seconds (2:05:09 PM)",
+          "value": "h12s"
+        },
+        {
+          "label": "Custom",
+          "value": "custom"
+        }
+      ]
+    },
+    {
+      "key": "customFormat",
+      "label": "Custom format",
+      "description": "Only used when Clock format is Custom. Qt format letters: HH hour (24h), h hour (12h with AP), mm minutes, ss seconds, AP for AM/PM, ddd or dddd weekday, d day, MMM or MMMM month. Put literal text in single quotes. Example: ddd d MMM HH:mm",
+      "type": "string",
+      "default": "HH:mm"
+    },
+    {
+      "key": "fontFamily",
+      "label": "Font",
+      "description": "Name of an installed font family, for example Inter or JetBrains Mono (run fc-list : family to see what you have). Leave empty for the default font. A name that isn't installed falls back to the default.",
+      "type": "string",
+      "default": ""
+    },
+    {
+      "key": "fontWeight",
+      "label": "Font weight",
+      "description": "Thickness of the clock text. If the font doesn't have the chosen weight, the nearest one it has is used.",
+      "type": "enum",
+      "default": "bold",
+      "options": [
+        {
+          "label": "Thin",
+          "value": "thin"
+        },
+        {
+          "label": "Extra light",
+          "value": "extraLight"
+        },
+        {
+          "label": "Light",
+          "value": "light"
+        },
+        {
+          "label": "Regular",
+          "value": "normal"
+        },
+        {
+          "label": "Medium",
+          "value": "medium"
+        },
+        {
+          "label": "Semi-bold",
+          "value": "demiBold"
+        },
+        {
+          "label": "Bold",
+          "value": "bold"
+        },
+        {
+          "label": "Extra bold",
+          "value": "extraBold"
+        },
+        {
+          "label": "Black",
+          "value": "black"
+        }
+      ]
+    },
+    {
+      "key": "clockSize",
+      "label": "Clock size, percent of screen height",
+      "description": "Height of the clock text relative to the screen.",
+      "type": "integer",
+      "default": 22,
+      "minimum": 5,
+      "maximum": 40
+    },
+    {
+      "key": "clockColor",
+      "label": "Clock color",
+      "description": "Auto picks light or dark text from how bright the wallpaper is behind the clock. The other options force one color, or follow your theme.",
+      "type": "enum",
+      "default": "auto",
+      "options": [
+        {
+          "label": "Auto (match wallpaper)",
+          "value": "auto"
+        },
+        {
+          "label": "Light",
+          "value": "light"
+        },
+        {
+          "label": "Dark",
+          "value": "dark"
+        },
+        {
+          "label": "Theme",
+          "value": "theme"
+        }
+      ]
+    },
+    {
       "key": "clockPosition",
       "label": "Clock position",
       "description": "Where the clock sits on the screen. Use the offsets below to nudge it from there.",
@@ -71,40 +193,6 @@
       "default": 0,
       "minimum": -50,
       "maximum": 50
-    },
-    {
-      "key": "clockSize",
-      "label": "Clock size, percent of screen height",
-      "description": "Height of the clock text relative to the screen.",
-      "type": "integer",
-      "default": 22,
-      "minimum": 5,
-      "maximum": 40
-    },
-    {
-      "key": "clockColor",
-      "label": "Clock color",
-      "description": "Auto picks light or dark text from how bright the wallpaper is behind the clock. The other options force one color, or follow your theme.",
-      "type": "enum",
-      "default": "auto",
-      "options": [
-        {
-          "label": "Auto (match wallpaper)",
-          "value": "auto"
-        },
-        {
-          "label": "Light",
-          "value": "light"
-        },
-        {
-          "label": "Dark",
-          "value": "dark"
-        },
-        {
-          "label": "Theme",
-          "value": "theme"
-        }
-      ]
     },
     {
       "key": "threshold",

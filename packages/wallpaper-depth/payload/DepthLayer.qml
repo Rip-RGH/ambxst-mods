@@ -24,6 +24,10 @@ Item {
     property int clockSize: 22      // % of screen height
     property string clockColor: "auto"   // auto | light | dark | theme
     property string clockPosition: "center"
+    property string clockFormat: "h24"      // h24 | h24s | h12 | h12s | custom
+    property string customFormat: "HH:mm"   // used when clockFormat is custom
+    property string fontFamily: ""          // "" = default font
+    property string fontWeightName: "bold"
     property int offsetX: 0         // % of screen width, fine-tune on top of the preset
     property int offsetY: 0         // % of screen height
     property bool settingsLoaded: false
@@ -42,6 +46,14 @@ Item {
             clockColor = String(value);
         else if (key === "clockPosition")
             clockPosition = String(value);
+        else if (key === "clockFormat")
+            clockFormat = String(value);
+        else if (key === "customFormat")
+            customFormat = String(value);
+        else if (key === "fontFamily")
+            fontFamily = String(value).trim();
+        else if (key === "fontWeight")
+            fontWeightName = String(value);
         else if (key === "offsetX")
             offsetX = Number(value);
         else if (key === "offsetY")
@@ -55,6 +67,7 @@ Item {
                 for (const key of Object.keys(settings.values))
                     applySetting(key, settings.values[key]);
                 settingsLoaded = true;
+                checkFont();
                 generate();
             } else if (settingsTries < 5) {
                 retryTimer.restart();      // backend may not be up yet
@@ -80,6 +93,49 @@ Item {
         }
     }
 
+    // ---- Clock text: format, font, weight ----------------------------------
+    readonly property var formats: ({
+        h24: "HH:mm", h24s: "HH:mm:ss", h12: "h:mm AP", h12s: "h:mm:ss AP"
+    })
+    readonly property string activeFormat: clockFormat === "custom"
+        ? (customFormat.trim() !== "" ? customFormat : "HH:mm")
+        : (formats[clockFormat] || "HH:mm")
+    // Qt format letters: 's' (outside quoted text) means seconds are shown.
+    readonly property bool showsSeconds: activeFormat.replace(/'[^']*'/g, "").indexOf("s") >= 0
+
+    readonly property var weights: ({
+        thin: Font.Thin, extraLight: Font.ExtraLight, light: Font.Light,
+        normal: Font.Normal, medium: Font.Medium, demiBold: Font.DemiBold,
+        bold: Font.Bold, extraBold: Font.ExtraBold, black: Font.Black
+    })
+    readonly property font clockFont: {
+        const f = {
+            pixelSize: Math.max(8, Math.round(height * clockSize / 100)),
+            weight: weights[fontWeightName] ?? Font.Bold
+        };
+        if (fontFamily !== "")
+            f.family = fontFamily;
+        return Qt.font(f);
+    }
+
+    function checkFont() {
+        if (fontFamily === "" || !settingsLoaded)
+            return;
+        try {
+            if (Qt.fontFamilies().indexOf(fontFamily) < 0)
+                console.warn("wallpaper-depth: font not found, falling back:", fontFamily);
+        } catch (e) {}
+    }
+    onFontFamilyChanged: checkFont()
+
+    // Layout uses a sample with every digit set to "0", so the clock doesn't
+    // shuffle sideways each minute as digit widths change.
+    TextMetrics {
+        id: sizer
+        font: root.clockFont
+        text: Qt.formatDateTime(clock.date, root.activeFormat).replace(/[0-9]/g, "0")
+    }
+
     // ---- Clock placement -------------------------------------------------
     // Preset = (horizontal, vertical) as 0 / 0.5 / 1 across the screen. Edge
     // presets keep a margin; offsetX/offsetY then nudge in percent of the screen.
@@ -97,19 +153,22 @@ Item {
     }
 
     readonly property real clockX: clamp(
-        marginX + (width - clockText.width - 2 * marginX) * anchorFrac[0] + width * offsetX / 100,
-        0, Math.max(0, width - clockText.width))
+        marginX + (width - sizer.width - 2 * marginX) * anchorFrac[0] + width * offsetX / 100,
+        0, Math.max(0, width - sizer.width))
     readonly property real clockY: clamp(
-        marginY + (height - clockText.height - 2 * marginY) * anchorFrac[1] + height * offsetY / 100,
-        0, Math.max(0, height - clockText.height))
+        marginY + (height - sizer.height - 2 * marginY) * anchorFrac[1] + height * offsetY / 100,
+        0, Math.max(0, height - sizer.height))
 
     // Clock centre as whole percents of the screen: depth.py measures the
     // wallpaper brightness there. Debounced so dragging a value doesn't spam it.
-    readonly property int clockCx: width > 0 ? Math.round((clockX + clockText.width / 2) / width * 100) : 50
-    readonly property int clockCy: height > 0 ? Math.round((clockY + clockText.height / 2) / height * 100) : 50
+    readonly property int clockCx: width > 0 ? Math.round((clockX + sizer.width / 2) / width * 100) : 50
+    readonly property int clockCy: height > 0 ? Math.round((clockY + sizer.height / 2) / height * 100) : 50
+    readonly property int clockW: width > 0 ? Math.max(1, Math.round(sizer.width / width * 100)) : 30
+    readonly property int clockH: height > 0 ? Math.max(1, Math.round(sizer.height / height * 100)) : 20
     onClockCxChanged: remeasure.restart()
     onClockCyChanged: remeasure.restart()
-    onClockSizeChanged: remeasure.restart()
+    onClockWChanged: remeasure.restart()
+    onClockHChanged: remeasure.restart()
 
     Timer {
         id: remeasure
@@ -149,8 +208,8 @@ Item {
         // Prefer the venv python if the user set one up, else system python3.
         gen.command = ["sh", "-c",
             'PY="$HOME/.local/share/ambxst/depth/venv/bin/python"; [ -x "$PY" ] || PY=python3; exec "$PY" "$@"',
-            "sh", script, source, cutout, String(threshold), String(feather), String(clockSize),
-            String(clockCx), String(clockCy)];
+            "sh", script, source, cutout, String(threshold), String(feather),
+            String(clockCx), String(clockCy), String(clockW), String(clockH)];
         gen.running = true;
     }
 
@@ -170,7 +229,7 @@ Item {
 
     SystemClock {
         id: clock
-        precision: SystemClock.Minutes
+        precision: root.showsSeconds ? SystemClock.Seconds : SystemClock.Minutes
     }
 
     // layer 1: the clock (behind the cutout)
@@ -192,7 +251,7 @@ Item {
                 easing.type: Easing.OutCubic
             }
         }
-        text: Qt.formatDateTime(clock.date, "hh:mm")
+        text: Qt.formatDateTime(clock.date, root.activeFormat)
         color: root.clockFill
         Behavior on color {
             ColorAnimation {
@@ -201,8 +260,7 @@ Item {
             }
         }
         opacity: 0.9
-        font.pixelSize: root.height * root.clockSize / 100
-        font.weight: Font.Bold
+        font: root.clockFont
     }
 
     // layer 2: the foreground cutout. Same crop settings as the wallpaper Image.

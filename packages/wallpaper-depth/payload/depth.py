@@ -2,9 +2,9 @@
 """Wallpaper Depth: build an RGBA foreground cutout of a wallpaper, and measure
 how bright the wallpaper is behind the clock so the QML can pick text colour.
 
-usage: depth.py <wallpaper> <out.png> <threshold 0-100> <feather px> <clock size %> <clock x %> <clock y %>
+usage: depth.py <wallpaper> <out.png> <threshold 0-100> <feather px> <clock x %> <clock y %> <clock w %> <clock h %>
 
-(clock x/y = centre of the clock as a percentage of the screen)
+(clock x/y = centre of the clock, w/h = its size, all as whole percents of the screen)
 
 Prints one number on stdout: relative luminance (0 = black, 1 = white) of the
 visible background behind the clock.
@@ -17,10 +17,11 @@ import os
 import sys
 
 wall, out = sys.argv[1], sys.argv[2]
-threshold, feather, clock = int(sys.argv[3]), float(sys.argv[4]), int(sys.argv[5])
-cx, cy = int(sys.argv[6]) / 100.0, int(sys.argv[7]) / 100.0
+threshold, feather = int(sys.argv[3]), float(sys.argv[4])
+cxp, cyp, wp, hp = (int(a) for a in sys.argv[5:9])
+cx, cy = cxp / 100.0, cyp / 100.0
 
-lum_path = os.path.splitext(out)[0] + f"-c{clock}-x{int(cx * 100)}-y{int(cy * 100)}.lum"
+lum_path = os.path.splitext(out)[0] + f"-x{cxp}-y{cyp}-w{wp}-h{hp}.lum"
 
 
 def write_atomic(path, data, binary=False):
@@ -46,11 +47,11 @@ os.makedirs(CACHE, exist_ok=True)
 img = Image.open(wall).convert("RGB")
 
 
-def clock_luminance(img, alpha, clock, cx, cy):
+def clock_luminance(img, alpha, cx, cy, wp, hp):
     """Median linear luminance of the background pixels behind the clock."""
     W, H = img.size
-    hy = max(clock * 0.6 / 100, 0.02)                      # half text height
-    hx = min(max(clock * 1.4 / 100 * H / W, 0.04), 0.45)   # half text width
+    hx = min(max(wp / 200.0, 0.02), 0.5)    # half the clock's width, as a fraction of the screen
+    hy = min(max(hp / 200.0, 0.02), 0.5)    # half its height
     x0, x1 = max(0.0, cx - hx), min(1.0, cx + hx)
     y0, y1 = max(0.0, cy - hy), min(1.0, cy + hy)
     box = (int(W * x0), int(H * y0), max(int(W * x1), int(W * x0) + 1), max(int(H * y1), int(H * y0) + 1))
@@ -107,6 +108,6 @@ else:
     cut.save(tmp, format="PNG")
     os.replace(tmp, out)
 
-L = clock_luminance(img, alpha, clock, cx, cy)
+L = clock_luminance(img, alpha, cx, cy, wp, hp)
 write_atomic(lum_path, f"{L:.4f}\n")
 print(f"{L:.4f}")
