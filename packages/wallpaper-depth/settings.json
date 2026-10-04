@@ -132,6 +132,27 @@
       ]
     },
     {
+      "key": "textSmoothing",
+      "label": "Text smoothing",
+      "description": "How the clock's edges are drawn. Smooth gives sharp corners and clean edges on large or very bold fonts (needs Qt 6.7 or newer; older versions use Standard automatically). Standard is Qt's default and can round corners and look rough on heavy fonts. Native uses the font's own hinting, which can show colored fringes on some setups.",
+      "type": "enum",
+      "default": "smooth",
+      "options": [
+        {
+          "label": "Smooth (recommended)",
+          "value": "smooth"
+        },
+        {
+          "label": "Standard",
+          "value": "standard"
+        },
+        {
+          "label": "Native",
+          "value": "native"
+        }
+      ]
+    },
+    {
       "key": "clockSize",
       "label": "Clock size, percent of screen height",
       "description": "Height of the clock text relative to the screen.",

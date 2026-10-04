@@ -18,10 +18,11 @@ Item {
     readonly property real tw: t ? Math.ceil(t.implicitWidth) : 0
     readonly property real th: t ? Math.ceil(t.implicitHeight) : 0
     readonly property real pad: Math.max(24, Math.ceil(th * 0.15))
-    readonly property real rx: t ? t.x - pad : 0
-    readonly property real ry: t ? t.y - pad : 0
+    readonly property real rx: t ? Math.round(t.x - pad) : 0     // whole pixels: no resampling blur
+    readonly property real ry: t ? Math.round(t.y - pad) : 0
     readonly property real rw: tw + 2 * pad
     readonly property real rh: th + 2 * pad
+    readonly property real ss: host ? host.glassSupersample : 1   // glyph shapes are drawn at this multiple
     readonly property real rim: Math.max(1.5, th * 0.012)           // rim thickness in px
     readonly property real frost: host ? host.glassFrost / 100 : 0.4
     readonly property real tint: host ? host.glassTint / 100 : 0.15
@@ -56,12 +57,14 @@ Item {
         visible: false
         layer.enabled: true
         layer.smooth: true
+        layer.textureSize: Qt.size(Math.max(1, Math.round(width * glass.ss)), Math.max(1, Math.round(height * glass.ss)))
         Text {
             x: glass.pad + parent.dx
             y: glass.pad + parent.dy
             text: glass.t ? glass.t.text : ""
             font: glass.host ? glass.host.clockFont : Qt.font({})
             color: "white"
+            renderType: glass.host ? glass.host.textRenderType : Text.QtRendering
         }
     }
 

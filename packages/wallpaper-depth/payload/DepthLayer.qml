@@ -31,6 +31,7 @@ Item {
     property int glassFrost: 40             // 0-100, blur inside the glyphs
     property int glassTint: 35              // 0-100
     property int glassHighlight: 70         // 0-100, rim light strength
+    property string textSmoothing: "smooth" // smooth | standard | native
     property string fontFamily: ""          // "" = default font
     property string fontWeightName: "bold"
     property int offsetX: 0         // % of screen width, fine-tune on top of the preset
@@ -63,6 +64,8 @@ Item {
             glassTint = Number(value);
         else if (key === "glassHighlight")
             glassHighlight = Number(value);
+        else if (key === "textSmoothing")
+            textSmoothing = String(value);
         else if (key === "fontFamily")
             fontFamily = String(value).trim();
         else if (key === "fontWeight")
@@ -121,6 +124,19 @@ Item {
         normal: Font.Normal, medium: Font.Medium, demiBold: Font.DemiBold,
         bold: Font.Bold, extraBold: Font.ExtraBold, black: Font.Black
     })
+    // Text anti-aliasing. "smooth" uses Qt's curve renderer (Qt 6.7+), which draws
+    // large glyphs from their outlines with sharp corners and clean edges; older
+    // Qt falls back to the standard renderer. "native" uses the font's own hinted
+    // rasteriser. The glass style also draws its letter shapes at 2x for non-standard.
+    readonly property int textRenderType: {
+        if (textSmoothing === "native")
+            return Text.NativeRendering;
+        if (textSmoothing === "smooth" && Text.CurveRendering !== undefined)
+            return Text.CurveRendering;
+        return Text.QtRendering;
+    }
+    readonly property real glassSupersample: textSmoothing === "standard" ? 1 : 2
+
     function makeFont(px) {
         const f = {
             pixelSize: Math.max(8, Math.round(px)),
@@ -292,6 +308,7 @@ Item {
                 easing.type: Easing.OutCubic
             }
         }
+        renderType: root.textRenderType
         text: Qt.formatDateTime(clock.date, root.activeFormat)
         color: root.clockFill
         Behavior on color {
