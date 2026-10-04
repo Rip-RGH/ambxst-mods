@@ -222,7 +222,7 @@ Item {
     // Glass is used only if it loaded and has something to sample; otherwise the
     // solid clock stays, so a problem in LiquidGlassText.qml can't blank the clock.
     readonly property bool glassActive: liquidGlass && glassLoader.status === Loader.Ready
-        && glassLoader.item !== null && glassLoader.item.usable
+        && glassLoader.item !== null && glassLoader.item.usable && glassLoader.item.shown
 
     readonly property string cutout: Quickshell.env("HOME") + "/.cache/ambxst/depth/"
         + Qt.md5(source) + "-" + threshold + "-" + feather + ".png"
@@ -267,7 +267,15 @@ Item {
     // layer 1: the clock (behind the cutout)
     Text {
         id: clockText
-        visible: !root.glassActive
+        // crossfades with the glass style instead of popping
+        opacity: root.glassActive ? 0 : 0.9
+        visible: opacity > 0
+        Behavior on opacity {
+            NumberAnimation {
+                duration: Config.animDuration
+                easing.type: Easing.OutCubic
+            }
+        }
         x: root.clockX
         y: root.clockY
         Behavior on x {
@@ -292,7 +300,6 @@ Item {
                 easing.type: Easing.OutCubic
             }
         }
-        opacity: 0.9
         font: root.clockFont
     }
 

@@ -27,6 +27,24 @@ Item {
     readonly property real tint: host ? host.glassTint / 100 : 0.15
     readonly property real shine: host ? host.glassHighlight / 100 : 0.7
 
+    // The backdrop is captured live while "settling" (after start-up, a move, a
+    // wallpaper change...) so late-loading images can never leave a stale or blank
+    // capture; once things have been still for a while it stops, so an idle
+    // desktop does no per-frame work.
+    property bool settling: true
+    property bool shown: false          // true once the first capture has had time to land
+    function kick() {
+        settling = true;
+        settleEnd.restart();
+    }
+    opacity: shown ? 1 : 0.01           // not exactly 0: fully transparent items aren't rendered
+    Behavior on opacity {
+        NumberAnimation {
+            duration: glass.host ? 220 : 0
+            easing.type: Easing.OutCubic
+        }
+    }
+
     // A white copy of the glyphs, optionally shifted. Used as shape/mask sources.
     component Glyph: Item {
         property real dx: 0
@@ -37,6 +55,7 @@ Item {
         height: glass.rh
         visible: false
         layer.enabled: true
+        layer.smooth: true
         Text {
             x: glass.pad + parent.dx
             y: glass.pad + parent.dy
@@ -58,9 +77,9 @@ Item {
         width: glass.rw
         height: glass.rh
         sourceItem: glass.host ? glass.host.backdrop : null
-        readonly property real inset: Math.min(glass.rw, glass.rh) * 0.03
+        readonly property real inset: Math.min(glass.rw, glass.rh) * 0.012
         sourceRect: Qt.rect(glass.rx + inset, glass.ry + inset, glass.rw - 2 * inset, glass.rh - 2 * inset)
-        live: glass.host ? glass.host.moving : false
+        live: glass.settling || (glass.host ? glass.host.moving : false)
         recursive: false
     }
 
@@ -113,6 +132,38 @@ Item {
         opacity: glass.tint * 0.7
     }
 
+    // sheen: a vertical gradient clipped to the glyphs, so the glass isn't flat
+    Item {
+        id: sheen
+        x: glass.rx
+        y: glass.ry
+        width: glass.rw
+        height: glass.rh
+        visible: false
+        layer.enabled: true
+        Rectangle {
+            anchors.fill: parent
+            gradient: Gradient {
+                GradientStop { position: 0.0; color: Qt.rgba(1, 1, 1, 0.30) }
+                GradientStop { position: 0.45; color: Qt.rgba(1, 1, 1, 0.05) }
+                GradientStop { position: 1.0; color: Qt.rgba(0, 0, 0, 0.20) }
+            }
+        }
+    }
+    MultiEffect {
+        x: glass.rx
+        y: glass.ry
+        width: glass.rw
+        height: glass.rh
+        source: sheen
+        autoPaddingEnabled: false
+        maskEnabled: true
+        maskSource: shape
+        maskThresholdMin: 0.5
+        maskSpreadAtMin: 1.0
+        opacity: 0.35 + glass.shine * 0.65
+    }
+
     // rim light, top-left (bright)
     MultiEffect {
         x: glass.rx
@@ -145,21 +196,18 @@ Item {
         opacity: glass.shine * 0.45
     }
 
-    // Re-capture the backdrop when what is behind the glyphs may have changed:
-    // quickly after the clock moves or resizes, slowly after a wallpaper change
-    // (lets any transition finish first).
-    Timer { id: quick; interval: 150; onTriggered: backdropTex.scheduleUpdate() }
-    Timer { id: slow; interval: 1200; onTriggered: backdropTex.scheduleUpdate() }
-    onRwChanged: quick.restart()
-    onRhChanged: quick.restart()
+    Timer { id: settleEnd; interval: 6000; onTriggered: glass.settling = false }
+    Timer { id: reveal; interval: 250; onTriggered: glass.shown = true }
+    onRwChanged: kick()
+    onRhChanged: kick()
     Connections {
         target: glass.host
-        function onSourceChanged() { slow.restart(); }
-        function onReadyChanged() { slow.restart(); }
-        function onMovingChanged() { if (!glass.host.moving) quick.restart(); }
+        function onSourceChanged() { glass.kick(); }
+        function onReadyChanged() { glass.kick(); }
+        function onMovingChanged() { glass.kick(); }
     }
     Component.onCompleted: {
-        quick.restart();
-        slow.restart();
+        kick();
+        reveal.restart();
     }
 }
