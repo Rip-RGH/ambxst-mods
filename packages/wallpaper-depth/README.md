@@ -13,7 +13,7 @@ A depth-effect clock for [Ambxst](https://github.com/Axenide/Ambxst): the time s
 - **Fast and private.** Everything runs locally. Each wallpaper is analysed once and cached.
 - **Plays well with others.** Composes with [Wallpaper Transitions](https://github.com/POSiTiiiV/ambxst-mods/tree/main/packages/wallpaper-transitions) by [POSiTiiiV](https://github.com/POSiTiiiV) and [Desktop Widgets](https://github.com/And0Null/ambxst-mods/tree/main/packages/desktop-widgets) by [And0Null](https://github.com/And0Null).
 
-![The mod used alongside And0Null's Desktop Widgets mod](assets/screenshots/glass-dresden.png)
+![The mod used alongside And0Null's Desktop Widgets mod](assets/screenshots/glass-dresden1.png)
 
 *Used alongside [And0Null's Desktop Widgets mod](https://github.com/And0Null/ambxst-mods/tree/main/packages/desktop-widgets).*
 
