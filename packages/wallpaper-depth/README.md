@@ -13,7 +13,7 @@ A depth-effect clock for [Ambxst](https://github.com/Axenide/Ambxst): the time s
 - **Fast and private.** Everything runs locally. Each wallpaper is analysed once and cached.
 - **Plays well with others.** Composes with the Wallpaper Transitions mod.
 
-![A glass clock over a moonlit river city](assets/screenshots/glass-dresden.png)
+![The mod used alongside And0Null's desktop widget mod](assets/screenshots/glass-dresden.png)
 
 ## Requirements
 
