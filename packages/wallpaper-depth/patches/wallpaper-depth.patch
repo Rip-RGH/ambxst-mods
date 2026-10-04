@@ -1,8 +1,8 @@
 diff --git a/modules/widgets/dashboard/wallpapers/Wallpaper.qml b/modules/widgets/dashboard/wallpapers/Wallpaper.qml
-index 099acb0..15d7bcf 100644
+index 099acb0..81c8d6a 100644
 --- a/modules/widgets/dashboard/wallpapers/Wallpaper.qml
 +++ b/modules/widgets/dashboard/wallpapers/Wallpaper.qml
-@@ -1236,4 +1236,11 @@ PanelWindow {
+@@ -1236,4 +1236,12 @@ PanelWindow {
              }
          }
      }
@@ -11,6 +11,7 @@ index 099acb0..15d7bcf 100644
 +    DepthLayer {
 +        anchors.fill: parent
 +        z: 1
++        backdrop: background
 +        source: wallpaper.getFileType(wallpaper.effectiveWallpaper) === "image" ? wallpaper.effectiveWallpaper : ""
 +    }
  }

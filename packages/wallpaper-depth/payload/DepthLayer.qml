@@ -12,6 +12,7 @@ Item {
     id: root
 
     property string source          // wallpaper path ("" disables the layer)
+    property Item backdrop: null    // the wallpaper item, sampled by the glass style
 
     // Must match "id" in ambxst.mod.json.
     readonly property string modId: "rip-rgh.wallpaper-depth"
@@ -26,6 +27,10 @@ Item {
     property string clockPosition: "center"
     property string clockFormat: "h24"      // h24 | h24s | h12 | h12s | custom
     property string customFormat: "HH:mm"   // used when clockFormat is custom
+    property bool liquidGlass: false        // solid style when false
+    property int glassFrost: 40             // 0-100, blur inside the glyphs
+    property int glassTint: 35              // 0-100
+    property int glassHighlight: 70         // 0-100, rim light strength
     property string fontFamily: ""          // "" = default font
     property string fontWeightName: "bold"
     property int offsetX: 0         // % of screen width, fine-tune on top of the preset
@@ -50,6 +55,14 @@ Item {
             clockFormat = String(value);
         else if (key === "customFormat")
             customFormat = String(value);
+        else if (key === "liquidGlass")
+            liquidGlass = Boolean(value);
+        else if (key === "glassFrost")
+            glassFrost = Number(value);
+        else if (key === "glassTint")
+            glassTint = Number(value);
+        else if (key === "glassHighlight")
+            glassHighlight = Number(value);
         else if (key === "fontFamily")
             fontFamily = String(value).trim();
         else if (key === "fontWeight")
@@ -108,15 +121,26 @@ Item {
         normal: Font.Normal, medium: Font.Medium, demiBold: Font.DemiBold,
         bold: Font.Bold, extraBold: Font.ExtraBold, black: Font.Black
     })
-    readonly property font clockFont: {
+    function makeFont(px) {
         const f = {
-            pixelSize: Math.max(8, Math.round(height * clockSize / 100)),
+            pixelSize: Math.max(8, Math.round(px)),
             weight: weights[fontWeightName] ?? Font.Bold
         };
         if (fontFamily !== "")
             f.family = fontFamily;
         return Qt.font(f);
     }
+
+    // Long formats (seconds, weekday names...) shrink to fit instead of running
+    // off the screen: measure the text at a reference size, cap it at 90% of the width.
+    TextMetrics {
+        id: refSizer
+        font: root.makeFont(100)
+        text: sizer.text
+    }
+    readonly property real fitPx: (refSizer.width > 0 && width > 0)
+        ? 0.9 * width / refSizer.width * 100 : 100000
+    readonly property font clockFont: makeFont(Math.min(height * clockSize / 100, fitPx))
 
     function checkFont() {
         if (fontFamily === "" || !settingsLoaded)
@@ -192,6 +216,14 @@ Item {
     property bool ready: false
     property bool pending: false
 
+    // The solid Text doubles as the layout/animation source for the glass style.
+    readonly property Item textItem: clockText
+    readonly property bool moving: clockText.x !== clockX || clockText.y !== clockY
+    // Glass is used only if it loaded and has something to sample; otherwise the
+    // solid clock stays, so a problem in LiquidGlassText.qml can't blank the clock.
+    readonly property bool glassActive: liquidGlass && glassLoader.status === Loader.Ready
+        && glassLoader.item !== null && glassLoader.item.usable
+
     readonly property string cutout: Quickshell.env("HOME") + "/.cache/ambxst/depth/"
         + Qt.md5(source) + "-" + threshold + "-" + feather + ".png"
     readonly property string script: Qt.resolvedUrl("depth.py").toString().replace("file://", "")
@@ -235,6 +267,7 @@ Item {
     // layer 1: the clock (behind the cutout)
     Text {
         id: clockText
+        visible: !root.glassActive
         x: root.clockX
         y: root.clockY
         Behavior on x {
@@ -261,6 +294,19 @@ Item {
         }
         opacity: 0.9
         font: root.clockFont
+    }
+
+    // glass style (optional): loaded only when enabled
+    Loader {
+        id: glassLoader
+        anchors.fill: parent
+        active: root.liquidGlass && root.backdrop !== null
+        source: "LiquidGlassText.qml"
+        onLoaded: item.host = root
+        onStatusChanged: {
+            if (status === Loader.Error)
+                console.warn("wallpaper-depth: liquid glass failed to load, using solid style");
+        }
     }
 
     // layer 2: the foreground cutout. Same crop settings as the wallpaper Image.

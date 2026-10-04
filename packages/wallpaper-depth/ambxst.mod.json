@@ -3,8 +3,8 @@
   "manifestVersion": 1,
   "id": "rip-rgh.wallpaper-depth",
   "name": "Wallpaper Depth",
-  "version": "0.4.0",
-  "description": "Depth effect for static image wallpapers: a clock is drawn between the wallpaper and a cutout of its foreground, so scenery passes in front of it. Depth is estimated locally with Depth Anything V2 Small.",
+  "version": "0.5.0",
+  "description": "Depth effect for static image wallpapers: a clock is drawn between the wallpaper and a cutout of its foreground, so scenery passes in front of it. Depth is estimated locally with Depth Anything V2 Small. Optional liquid glass style.",
   "license": "MIT",
   "author": "rip-rgh",
   "compatibility": {
@@ -26,6 +26,11 @@
       "type": "overlay",
       "source": "payload/DepthLayer.qml",
       "target": "modules/widgets/dashboard/wallpapers/DepthLayer.qml"
+    },
+    {
+      "type": "overlay",
+      "source": "payload/LiquidGlassText.qml",
+      "target": "modules/widgets/dashboard/wallpapers/LiquidGlassText.qml"
     },
     {
       "type": "overlay",

@@ -10,6 +10,40 @@
       "default": true
     },
     {
+      "key": "liquidGlass",
+      "label": "Liquid glass style",
+      "description": "Draw the clock as frosted glass instead of solid text: the wallpaper shows through the letters, with light edges and a soft shadow. Turn off for the solid style.",
+      "type": "boolean",
+      "default": false
+    },
+    {
+      "key": "glassFrost",
+      "label": "Glass frost",
+      "description": "How blurred the wallpaper looks through the letters, from 0 (clear) to 100 (very frosted). Liquid glass style only.",
+      "type": "integer",
+      "default": 40,
+      "minimum": 0,
+      "maximum": 100
+    },
+    {
+      "key": "glassTint",
+      "label": "Glass tint",
+      "description": "How strongly the glass is tinted, from 0 to 100. The tint follows Clock color, so it is light on dark wallpapers and dark on bright ones. Raise it if the clock is hard to read. Liquid glass style only.",
+      "type": "integer",
+      "default": 35,
+      "minimum": 0,
+      "maximum": 100
+    },
+    {
+      "key": "glassHighlight",
+      "label": "Glass edge highlight",
+      "description": "Strength of the light along the edges of the letters, from 0 to 100. Liquid glass style only.",
+      "type": "integer",
+      "default": 70,
+      "minimum": 0,
+      "maximum": 100
+    },
+    {
       "key": "clockFormat",
       "label": "Clock format",
       "description": "How the time is written. Pick Custom to use your own format below.",
