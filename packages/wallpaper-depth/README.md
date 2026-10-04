@@ -6,14 +6,14 @@ A depth-effect clock for [Ambxst](https://github.com/Axenide/Ambxst): the time s
 
 ## Features
 
-- **Depth effect.** A local depth model finds the foreground of each wallpaper and cuts it out; the clock is drawn behind the cutout.
+- **Depth effect.** A local depth model finds the foreground of each wallpaper and cuts it out; the clock is drawn behind the cutout. Switch it off and the clock simply sits on top of the wallpaper (no model needed).
 - **Liquid glass style.** Toggle between solid text and frosted glass with adjustable frost, tint and edge light.
 - **Auto text color.** Solid text switches between light and dark depending on how bright the wallpaper is *behind the clock*, wherever you put it.
 - **Fully configurable from Settings → Mods.** Format (12/24-hour, seconds, custom), font, weight, size, text smoothing, and nine position presets with fine offsets.
 - **Fast and private.** Everything runs locally. Each wallpaper is analysed once and cached.
 - **Plays well with others.** Composes with [Wallpaper Transitions](https://github.com/POSiTiiiV/ambxst-mods/tree/main/packages/wallpaper-transitions) by [POSiTiiiV](https://github.com/POSiTiiiV) and [Desktop Widgets](https://github.com/And0Null/ambxst-mods/tree/main/packages/desktop-widgets) by [And0Null](https://github.com/And0Null).
 
-![The mod used alongside And0Null's Desktop Widgets mod](assets/screenshots/glass-dresden1.png)
+![The mod used alongside And0Null's Desktop Widgets mod](assets/screenshots/glass-dresden.png)
 
 *Used alongside [And0Null's Desktop Widgets mod](https://github.com/And0Null/ambxst-mods/tree/main/packages/desktop-widgets).*
 
@@ -21,7 +21,7 @@ A depth-effect clock for [Ambxst](https://github.com/Axenide/Ambxst): the time s
 
 - Ambxst `>=1.3.0 <2.0.0`
 - Python 3 with `onnxruntime`, `numpy` and `pillow`
-- The *Depth Anything V2 Small* model, about 99 MB (downloaded once, see below)
+- The *Depth Anything V2 Small* model, about 99 MB (downloaded once, see below). Only needed for the depth effect; with it switched off, the clock still works without the model.
 - Qt 6.7 or newer for the *Smooth* text option. Older Qt falls back to *Standard* automatically.
 
 ## Install
@@ -52,11 +52,11 @@ Then open **Settings → Mods → Wallpaper Depth**. The first time a wallpaper 
 
 | Setting | Default | Options | What it does |
 |---|---|---|---|
-| **Depth effect** | on | on / off | Draw the clock behind the wallpaper's foreground. |
+| **Depth effect** | on | on / off | Draw the clock behind the wallpaper's foreground. Turn off to draw it on top of the wallpaper instead; the depth model is not needed in that case. |
 | **Liquid glass style** | off | on / off | Draw the clock as frosted glass instead of solid text: the wallpaper shows through the letters, with light edges and a soft shadow. |
-| **Glass frost** | 40 | 0 to 100 | How blurred the wallpaper looks through the letters, from 0 (clear) to 100 (very frosted). |
-| **Glass tint** | 35 | 0 to 100 | How strongly the glass is tinted, from 0 to 100. |
-| **Glass edge highlight** | 70 | 0 to 100 | Strength of the light along the edges of the letters, from 0 to 100. |
+| **Glass frost** | Medium | Clear, Light, Medium, Strong, Heavy | How blurred the wallpaper looks through the letters, from Clear to Heavy. |
+| **Glass tint** | Medium | None, Light, Medium, Strong, Smoked | How strongly the glass is tinted. The tint follows Clock color, so it is light on dark wallpapers and dark on bright ones. |
+| **Glass edge highlight** | Medium | Off, Soft, Medium, Bright | Strength of the light along the edges of the letters. |
 | **Clock format** | 24-hour (14:05) | 24-hour (14:05), 24-hour with seconds (14:05:09), 12-hour (2:05 PM), 12-hour with seconds (2:05:09 PM), Custom | How the time is written. |
 | **Custom format** | `HH:mm` | text | Only used when Clock format is Custom. |
 | **Font** | empty | text | Name of an installed font family, for example Inter or JetBrains Mono (run fc-list : family to see what you have). |
@@ -67,8 +67,8 @@ Then open **Settings → Mods → Wallpaper Depth**. The first time a wallpaper 
 | **Clock position** | Center | Top left, Top center, Top right, Middle left, Center, Middle right, Bottom left, Bottom center, Bottom right | Where the clock sits on the screen. |
 | **Horizontal offset, percent of screen width** | 0 | -50 to 50 | Moves the clock sideways from the chosen position. |
 | **Vertical offset, percent of screen height** | 0 | -50 to 50 | Moves the clock up or down from the chosen position. |
-| **Foreground threshold** | 30 | 0 to 100 | How close something has to be to count as foreground, from 0 to 100. |
-| **Edge softness** | 8 | 0 to 50 | Blur radius in pixels around the cutout edge, from 0 (hard) to 50 (very soft). |
+| **Foreground threshold** | Balanced | Large foreground, Balanced, Small foreground, Minimal | How much of the wallpaper counts as foreground, and so can pass in front of the clock. |
+| **Edge softness** | Normal | Sharp, Normal, Soft, Very soft | How soft the edge of the foreground cutout is. |
 
 Changes apply live. Long clock formats shrink automatically to fit the screen.
 
@@ -91,7 +91,7 @@ Changes apply live. Long clock formats shrink automatically to fit the screen.
 
 ## Troubleshooting
 
-- **No clock appears.** Check that `~/.local/share/ambxst/depth/model.onnx` exists and run `ambxst reload` in a terminal to see any `wallpaper-depth:` messages.
+- **No clock appears.** Switch *Depth effect* off: if the clock shows up, the problem is the depth setup. Check that `~/.local/share/ambxst/depth/model.onnx` exists and run `ambxst reload` in a terminal to see any `wallpaper-depth:` messages.
 - **The Settings section is missing.** Reinstall the mod (`ambxst mods remove`, then install and enable again); the manager stores a snapshot at install time.
 - **Font not applying.** The mod logs `font not found` for names that are not installed. `fc-list : family` lists what you have.
 - **Glass looks faint on a bright wallpaper.** Raise *Glass tint*.

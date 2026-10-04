@@ -5,7 +5,7 @@
     {
       "key": "enabled",
       "label": "Depth effect",
-      "description": "Draw the clock behind the wallpaper's foreground. Turn off to keep the mod installed without the effect.",
+      "description": "Draw the clock behind the wallpaper's foreground. Turn off to draw it on top of the wallpaper instead; the depth model is not needed in that case.",
       "type": "boolean",
       "default": true
     },
@@ -19,29 +19,85 @@
     {
       "key": "glassFrost",
       "label": "Glass frost",
-      "description": "How blurred the wallpaper looks through the letters, from 0 (clear) to 100 (very frosted). Liquid glass style only.",
-      "type": "integer",
-      "default": 40,
-      "minimum": 0,
-      "maximum": 100
+      "description": "How blurred the wallpaper looks through the letters, from Clear to Heavy. Liquid glass style only.",
+      "type": "enum",
+      "default": "medium",
+      "options": [
+        {
+          "label": "Clear",
+          "value": "clear"
+        },
+        {
+          "label": "Light",
+          "value": "light"
+        },
+        {
+          "label": "Medium",
+          "value": "medium"
+        },
+        {
+          "label": "Strong",
+          "value": "strong"
+        },
+        {
+          "label": "Heavy",
+          "value": "heavy"
+        }
+      ]
     },
     {
       "key": "glassTint",
       "label": "Glass tint",
-      "description": "How strongly the glass is tinted, from 0 to 100. The tint follows Clock color, so it is light on dark wallpapers and dark on bright ones. Raise it if the clock is hard to read. Liquid glass style only.",
-      "type": "integer",
-      "default": 35,
-      "minimum": 0,
-      "maximum": 100
+      "description": "How strongly the glass is tinted. The tint follows Clock color, so it is light on dark wallpapers and dark on bright ones. Raise it if the clock is hard to read. Liquid glass style only.",
+      "type": "enum",
+      "default": "medium",
+      "options": [
+        {
+          "label": "None",
+          "value": "none"
+        },
+        {
+          "label": "Light",
+          "value": "light"
+        },
+        {
+          "label": "Medium",
+          "value": "medium"
+        },
+        {
+          "label": "Strong",
+          "value": "strong"
+        },
+        {
+          "label": "Smoked",
+          "value": "smoked"
+        }
+      ]
     },
     {
       "key": "glassHighlight",
       "label": "Glass edge highlight",
-      "description": "Strength of the light along the edges of the letters, from 0 to 100. Liquid glass style only.",
-      "type": "integer",
-      "default": 70,
-      "minimum": 0,
-      "maximum": 100
+      "description": "Strength of the light along the edges of the letters. Liquid glass style only.",
+      "type": "enum",
+      "default": "medium",
+      "options": [
+        {
+          "label": "Off",
+          "value": "off"
+        },
+        {
+          "label": "Soft",
+          "value": "soft"
+        },
+        {
+          "label": "Medium",
+          "value": "medium"
+        },
+        {
+          "label": "Bright",
+          "value": "bright"
+        }
+      ]
     },
     {
       "key": "clockFormat",
@@ -252,20 +308,52 @@
     {
       "key": "threshold",
       "label": "Foreground threshold",
-      "description": "How close something has to be to count as foreground, from 0 to 100. Lower values cut out more of the scene. Changing this reuses the cached depth map, so it is fast.",
-      "type": "integer",
-      "default": 30,
-      "minimum": 0,
-      "maximum": 100
+      "description": "How much of the wallpaper counts as foreground, and so can pass in front of the clock. Large foreground cuts out more of the scene.",
+      "type": "enum",
+      "default": "balanced",
+      "options": [
+        {
+          "label": "Large foreground",
+          "value": "large"
+        },
+        {
+          "label": "Balanced",
+          "value": "balanced"
+        },
+        {
+          "label": "Small foreground",
+          "value": "small"
+        },
+        {
+          "label": "Minimal",
+          "value": "minimal"
+        }
+      ]
     },
     {
       "key": "feather",
       "label": "Edge softness",
-      "description": "Blur radius in pixels around the cutout edge, from 0 (hard) to 50 (very soft).",
-      "type": "integer",
-      "default": 8,
-      "minimum": 0,
-      "maximum": 50
+      "description": "How soft the edge of the foreground cutout is, from Sharp to Very soft.",
+      "type": "enum",
+      "default": "normal",
+      "options": [
+        {
+          "label": "Sharp",
+          "value": "sharp"
+        },
+        {
+          "label": "Normal",
+          "value": "normal"
+        },
+        {
+          "label": "Soft",
+          "value": "soft"
+        },
+        {
+          "label": "Very soft",
+          "value": "verySoft"
+        }
+      ]
     }
   ]
 }

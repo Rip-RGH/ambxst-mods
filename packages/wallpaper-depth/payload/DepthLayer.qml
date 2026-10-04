@@ -39,13 +39,27 @@ Item {
     property bool settingsLoaded: false
     property int settingsTries: 0
 
+    // Preset choices (enum settings) and the numbers they stand for. The option
+    // *values* in settings.json are what Ambxst stores, so keep them stable;
+    // labels can change freely. Unknown values fall back to the default.
+    readonly property var frostLevels: ({ clear: 0, light: 20, medium: 40, strong: 60, heavy: 85 })
+    readonly property var tintLevels: ({ none: 0, light: 15, medium: 35, strong: 55, smoked: 80 })
+    readonly property var highlightLevels: ({ off: 0, soft: 40, medium: 70, bright: 100 })
+    readonly property var thresholdLevels: ({ large: 15, balanced: 30, small: 50, minimal: 70 })
+    readonly property var featherLevels: ({ sharp: 0, normal: 8, soft: 16, verySoft: 30 })
+
+    function level(table, value, fallback) {
+        const n = table[String(value)];
+        return n === undefined ? fallback : n;
+    }
+
     function applySetting(key, value) {
         if (key === "enabled")
             effectEnabled = Boolean(value);
         else if (key === "threshold")
-            threshold = Number(value);
+            threshold = level(thresholdLevels, value, 30);
         else if (key === "feather")
-            feather = Number(value);
+            feather = level(featherLevels, value, 8);
         else if (key === "clockSize")
             clockSize = Number(value);
         else if (key === "clockColor")
@@ -59,11 +73,11 @@ Item {
         else if (key === "liquidGlass")
             liquidGlass = Boolean(value);
         else if (key === "glassFrost")
-            glassFrost = Number(value);
+            glassFrost = level(frostLevels, value, 40);
         else if (key === "glassTint")
-            glassTint = Number(value);
+            glassTint = level(tintLevels, value, 35);
         else if (key === "glassHighlight")
-            glassHighlight = Number(value);
+            glassHighlight = level(highlightLevels, value, 70);
         else if (key === "textSmoothing")
             textSmoothing = String(value);
         else if (key === "fontFamily")
@@ -229,8 +243,15 @@ Item {
         return luminance > 0.179 ? darkText : lightText;
     }
 
-    property bool ready: false
+    property bool ready: false          // the foreground cutout exists (depth effect on)
+    property bool settled: false        // the script has finished for the current wallpaper
     property bool pending: false
+
+    // Depth on: wait for the cutout. Depth off: no cutout is needed, so show the
+    // clock on top of the wallpaper as soon as the brightness has been measured.
+    readonly property bool showing: effectEnabled
+        ? fg.status === Image.Ready
+        : (settled && source !== "")
 
     // The solid Text doubles as the layout/animation source for the glass style.
     readonly property Item textItem: clockText
@@ -245,9 +266,11 @@ Item {
     readonly property string script: Qt.resolvedUrl("depth.py").toString().replace("file://", "")
 
     function generate(keepVisible) {
-        if (!keepVisible)
+        if (!keepVisible) {
             ready = false;
-        if (!settingsLoaded || !source || !effectEnabled)
+            settled = false;
+        }
+        if (!settingsLoaded || !source)
             return;
         if (gen.running) {
             pending = true;
@@ -257,15 +280,18 @@ Item {
         gen.command = ["sh", "-c",
             'PY="$HOME/.local/share/ambxst/depth/venv/bin/python"; [ -x "$PY" ] || PY=python3; exec "$PY" "$@"',
             "sh", script, source, cutout, String(threshold), String(feather),
-            String(clockCx), String(clockCy), String(clockW), String(clockH)];
+            String(clockCx), String(clockCy), String(clockW), String(clockH),
+            effectEnabled ? "depth" : "flat"];
         gen.running = true;
     }
 
     onCutoutChanged: generate()
-    onEffectEnabledChanged: generate()
+    // Turning depth off keeps the clock on screen (it just loses the cutout);
+    // turning it on has to wait for a cutout.
+    onEffectEnabledChanged: generate(!effectEnabled)
     Component.onCompleted: loadSettings()
 
-    opacity: fg.status === Image.Ready ? 1 : 0
+    opacity: root.showing ? 1 : 0
     visible: opacity > 0
     Behavior on opacity {
         enabled: Config.animDuration > 0
@@ -337,7 +363,7 @@ Item {
     Image {
         id: fg
         anchors.fill: parent
-        source: root.ready ? "file://" + root.cutout : ""
+        source: (root.ready && root.effectEnabled) ? "file://" + root.cutout : ""
         fillMode: Image.PreserveAspectCrop
         sourceSize.width: root.width
         sourceSize.height: root.height
@@ -365,13 +391,14 @@ Item {
         onExited: code => {
             if (root.pending) {
                 root.pending = false;
-                root.generate();
+                root.generate(true);
                 return;
             }
             if (code === 0)
-                root.ready = true;
+                root.ready = root.effectEnabled;     // a cutout only exists in depth mode
             else
                 console.warn("wallpaper-depth: generation failed with code", code);
+            root.settled = true;
         }
     }
 }

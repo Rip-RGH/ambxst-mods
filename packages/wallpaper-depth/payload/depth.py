@@ -2,9 +2,12 @@
 """Wallpaper Depth: build an RGBA foreground cutout of a wallpaper, and measure
 how bright the wallpaper is behind the clock so the QML can pick text colour.
 
-usage: depth.py <wallpaper> <out.png> <threshold 0-100> <feather px> <clock x %> <clock y %> <clock w %> <clock h %>
+usage: depth.py <wallpaper> <out.png> <threshold 0-100> <feather px> <clock x %> <clock y %> <clock w %> <clock h %> [depth|flat]
 
 (clock x/y = centre of the clock, w/h = its size, all as whole percents of the screen)
+
+Mode "flat" (depth effect switched off) skips the model and the cutout entirely
+and only measures the brightness behind the clock, so no model is needed.
 
 Prints one number on stdout: relative luminance (0 = black, 1 = white) of the
 visible background behind the clock.
@@ -20,8 +23,16 @@ wall, out = sys.argv[1], sys.argv[2]
 threshold, feather = int(sys.argv[3]), float(sys.argv[4])
 cxp, cyp, wp, hp = (int(a) for a in sys.argv[5:9])
 cx, cy = cxp / 100.0, cyp / 100.0
+flat = len(sys.argv) > 9 and sys.argv[9] == "flat"
 
-lum_path = os.path.splitext(out)[0] + f"-x{cxp}-y{cyp}-w{wp}-h{hp}.lum"
+if flat:
+    # no cutout in this mode, so the cache name must not depend on threshold/feather
+    lum_path = os.path.join(
+        os.path.dirname(out),
+        hashlib.md5(wall.encode()).hexdigest() + f"-flat-x{cxp}-y{cyp}-w{wp}-h{hp}.lum",
+    )
+else:
+    lum_path = os.path.splitext(out)[0] + f"-x{cxp}-y{cyp}-w{wp}-h{hp}.lum"
 
 
 def write_atomic(path, data, binary=False):
@@ -32,7 +43,7 @@ def write_atomic(path, data, binary=False):
 
 
 # Fast path before the heavy imports: everything is already cached.
-if os.path.exists(out) and os.path.exists(lum_path):
+if os.path.exists(lum_path) and (flat or os.path.exists(out)):
     print(open(lum_path).read().strip())
     sys.exit(0)
 
@@ -67,6 +78,14 @@ def clock_luminance(img, alpha, cx, cy, wp, hp):
         lum = lum[bg]
     return float(np.median(lum))
 
+
+if flat:
+    # Depth effect off: nothing is hidden behind a cutout, so every pixel counts.
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    L = clock_luminance(img, Image.new("L", img.size, 0), cx, cy, wp, hp)
+    write_atomic(lum_path, f"{L:.4f}\n")
+    print(f"{L:.4f}")
+    sys.exit(0)
 
 if os.path.exists(out):
     # Cutout cached from an earlier run; only the luminance is missing.
