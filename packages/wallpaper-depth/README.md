@@ -2,7 +2,7 @@
 
 A depth-effect clock for [Ambxst](https://github.com/Axenide/Ambxst): the time sits *between* your wallpaper and its foreground, so mountains, trees and buildings pass in front of it. Optionally, the clock becomes frosted liquid glass.
 
-![A glass clock behind a mountain ridge: the lower digits are hidden by the peaks](docs/images/depth-mountains.png)
+![A glass clock behind a mountain ridge: the lower digits are hidden by the peaks](assets/screenshots/depth-mountains.png)
 
 ## Features
 
@@ -13,7 +13,7 @@ A depth-effect clock for [Ambxst](https://github.com/Axenide/Ambxst): the time s
 - **Fast and private.** Everything runs locally. Each wallpaper is analysed once and cached.
 - **Plays well with others.** Composes with the Wallpaper Transitions mod.
 
-![A glass clock over a moonlit river city](docs/images/glass-dresden.png)
+![A glass clock over a moonlit river city](assets/screenshots/glass-dresden.png)
 
 ## Requirements
 
@@ -36,9 +36,10 @@ curl -L -o model.onnx \
 
 **2. Install the mod**
 
+You can install the mod through pasting this directory's url to Settings →  Mods then enabling it before reloading Ambxst, or through the terminal:
+
 ```
-git clone https://github.com/Rip-RGH/ambxst-mods.git
-ambxst mods install ./ambxst-mods/packages/wallpaper-depth
+ambxst mods install https://github.com/Rip-RGH/ambxst-mods/packages/tree/main/wallpaper-depth
 ambxst mods enable rip-rgh.wallpaper-depth
 ambxst reload
 ```
