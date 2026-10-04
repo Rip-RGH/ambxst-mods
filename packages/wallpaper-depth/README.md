@@ -48,6 +48,15 @@ ambxst reload
 
 Then open **Settings → Mods → Wallpaper Depth**. The first time a wallpaper is used, the clock appears after a few seconds while the depth map is generated.
 
+**3. Updating the mod**
+
+When updating the mod, you can click the **Update** button on the mod's settings and then restarting Ambxst. You can also update the mod using the terminal by running:
+
+```
+ambxst mods update rip-rgh.wallpaper-depth
+ambxst reload
+```
+
 ## Settings
 
 | Setting | Default | Options | What it does |
