@@ -11,9 +11,11 @@ A depth-effect clock for [Ambxst](https://github.com/Axenide/Ambxst): the time s
 - **Auto text color.** Solid text switches between light and dark depending on how bright the wallpaper is *behind the clock*, wherever you put it.
 - **Fully configurable from Settings → Mods.** Format (12/24-hour, seconds, custom), font, weight, size, text smoothing, and nine position presets with fine offsets.
 - **Fast and private.** Everything runs locally. Each wallpaper is analysed once and cached.
-- **Plays well with others.** Composes with the Wallpaper Transitions mod.
+- **Plays well with others.** Composes with [Wallpaper Transitions](https://github.com/POSiTiiiV/ambxst-mods/tree/main/packages/wallpaper-transitions) by [POSiTiiiV](https://github.com/POSiTiiiV) and [Desktop Widgets](https://github.com/And0Null/ambxst-mods/tree/main/packages/desktop-widgets) by [And0Null](https://github.com/And0Null).
 
-![The mod used alongside And0Null's desktop widget mod](assets/screenshots/glass-dresden.png)
+![The mod used alongside And0Null's Desktop Widgets mod](assets/screenshots/glass-dresden.png)
+
+*Used alongside [And0Null's Desktop Widgets mod](https://github.com/And0Null/ambxst-mods/tree/main/packages/desktop-widgets).*
 
 ## Requirements
 
@@ -39,7 +41,7 @@ curl -L -o model.onnx \
 You can install the mod through pasting this directory's url to Settings →  Mods then enabling it before reloading Ambxst, or through the terminal:
 
 ```
-ambxst mods install https://github.com/Rip-RGH/ambxst-mods/packages/tree/main/wallpaper-depth
+ambxst mods install https://github.com/Rip-RGH/ambxst-mods/tree/main/packages/wallpaper-depth
 ambxst mods enable rip-rgh.wallpaper-depth
 ambxst reload
 ```
@@ -96,4 +98,4 @@ Changes apply live. Long clock formats shrink automatically to fit the screen.
 
 ## Credits and license
 
-[MIT licensed](LICENSE). Depth estimation uses [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2) (Small), in the ONNX export from [onnx-community](https://huggingface.co/onnx-community/depth-anything-v2-small); check the model card for its license terms. Built for the [Ambxst](https://github.com/Axenide/Ambxst) shell. The idea follows the Wallpaper Depth plugin for Noctalia Shell. Screenshot wallpapers belong to their respective creators.
+[MIT licensed](LICENSE). Depth estimation uses [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2) (Small), in the ONNX export from [onnx-community](https://huggingface.co/onnx-community/depth-anything-v2-small); check the model card for its license terms. Built for the [Ambxst](https://github.com/Axenide/Ambxst) shell. The idea follows the Wallpaper Depth plugin for Noctalia Shell. Thanks to [POSiTiiiV](https://github.com/POSiTiiiV) ([Wallpaper Transitions](https://github.com/POSiTiiiV/ambxst-mods/tree/main/packages/wallpaper-transitions)) and [And0Null](https://github.com/And0Null) ([Desktop Widgets](https://github.com/And0Null/ambxst-mods/tree/main/packages/desktop-widgets)), whose mods this one is used alongside. Screenshot wallpapers belong to their respective creators.
