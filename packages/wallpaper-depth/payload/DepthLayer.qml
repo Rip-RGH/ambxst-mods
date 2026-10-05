@@ -262,7 +262,7 @@ Item {
         && glassLoader.item !== null && glassLoader.item.usable && glassLoader.item.shown
 
     readonly property string cutout: Quickshell.env("HOME") + "/.cache/ambxst/depth/"
-        + Qt.md5(source) + "-" + threshold + "-" + feather + ".png"
+        + Qt.md5(source) + "-v2-" + threshold + "-" + feather + ".png"
     readonly property string script: Qt.resolvedUrl("depth.py").toString().replace("file://", "")
 
     function generate(keepVisible) {
