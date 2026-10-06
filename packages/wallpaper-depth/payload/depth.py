@@ -98,7 +98,17 @@ def model_size(inp, W, H):
 def estimate_depth(img):
     import onnxruntime as ort
 
-    sess = ort.InferenceSession(MODEL, providers=["CPUExecutionProvider"])
+    try:
+        sess = ort.InferenceSession(MODEL, providers=["CPUExecutionProvider"])
+    except Exception as e:                      # noqa: BLE001 - turn it into something readable
+        sys.stderr.write(f"could not load the depth model {MODEL}: {e}\n")
+        data = MODEL + "_data"
+        if os.path.getsize(MODEL) < 5_000_000 and not os.path.exists(data):
+            sys.stderr.write(
+                "model.onnx is only the model graph. This model keeps its weights in a second\n"
+                f"file, model.onnx_data; download it too and put it next to model.onnx ({data}).\n"
+            )
+        sys.exit(3)
     inp = sess.get_inputs()[0]
     sizes = [model_size(inp, *img.size)]
     if sizes[0] != (518, 518):

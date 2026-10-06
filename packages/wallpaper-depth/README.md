@@ -21,7 +21,7 @@ A depth-effect clock for [Ambxst](https://github.com/Axenide/Ambxst): the time s
 
 - Ambxst `>=1.3.0 <2.0.0`
 - Python 3 with `onnxruntime`, `numpy` and `pillow`
-- The *Depth Anything V2 Small* model, about 99 MB (downloaded once, see below). Only needed for the depth effect; with it switched off, the clock still works without the model.
+- The *Depth Anything V2 Small* model, about 99 MB in total (downloaded once, see below). Only needed for the depth effect; with it switched off, the clock still works without the model.
 - Qt 6.7 or newer for the *Smooth* text option. Older Qt falls back to *Standard* automatically.
 
 ## Install
@@ -32,9 +32,11 @@ A depth-effect clock for [Ambxst](https://github.com/Axenide/Ambxst): the time s
 mkdir -p ~/.local/share/ambxst/depth && cd ~/.local/share/ambxst/depth
 python3 -m venv venv
 ./venv/bin/pip install onnxruntime numpy pillow
-curl -L -o model.onnx \
-  https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model.onnx
+curl -L -O https://huggingface.co/onnx-community/depth-anything-v2-small-ONNX/resolve/main/onnx/model.onnx
+curl -L -O https://huggingface.co/onnx-community/depth-anything-v2-small-ONNX/resolve/main/onnx/model.onnx_data
 ```
+
+The model comes as **two files** that must stay side by side with exactly these names: `model.onnx` (the small graph) and `model.onnx_data` (the weights, about 99 MB). If you downloaded an older single-file `model.onnx` (about 99 MB), that works too and needs nothing else.
 
 **2. Install the mod**
 
@@ -47,15 +49,6 @@ ambxst reload
 ```
 
 Then open **Settings → Mods → Wallpaper Depth**. The first time a wallpaper is used, the clock appears after a few seconds while the depth map is generated.
-
-**3. Updating the mod**
-
-When updating the mod, you can click the **Update** button on the mod's settings and then restarting Ambxst. You can also update the mod using the terminal by running:
-
-```
-ambxst mods update rip-rgh.wallpaper-depth
-ambxst reload
-```
 
 ## Settings
 
@@ -87,7 +80,7 @@ Changes apply live. Long clock formats shrink automatically to fit the screen.
 
 ## How it works
 
-1. When the wallpaper changes, a small Python script (`payload/depth.py`) estimates depth with the ONNX model and writes a transparent PNG of the foreground to `~/.cache/ambxst/depth/`. Threshold and softness changes reuse the cached depth map, so they are fast.
+1. When the wallpaper changes, a small Python script (`payload/depth.py`) estimates depth with the ONNX model, refines that depth map against the wallpaper's own edges so the cut follows real outlines, and writes a transparent PNG of the foreground to `~/.cache/ambxst/depth/`. Threshold and softness changes reuse the cached depth map, so they are fast.
 2. A QML layer (`payload/DepthLayer.qml`) stacks the clock behind that cutout, inside the wallpaper window.
 3. For auto color, the script also measures the brightness of the visible background behind the clock.
 4. The glass style (`payload/LiquidGlassText.qml`) is loaded only when enabled. It frosts and slightly magnifies the wallpaper inside the letters and adds a tint, edge light and shadow. It is an approximation built from Qt effects, not true refraction.
@@ -100,11 +93,11 @@ Changes apply live. Long clock formats shrink automatically to fit the screen.
 
 ## Troubleshooting
 
-- **No clock appears.** Switch *Depth effect* off: if the clock shows up, the problem is the depth setup. Check that `~/.local/share/ambxst/depth/model.onnx` exists and run `ambxst reload` in a terminal to see any `wallpaper-depth:` messages.
+- **No clock appears.** Switch *Depth effect* off: if the clock shows up, the problem is the depth setup. Check that both `~/.local/share/ambxst/depth/model.onnx` and `model.onnx_data` exist, and run `ambxst reload` in a terminal to see any `wallpaper-depth:` messages.
 - **The Settings section is missing.** Reinstall the mod (`ambxst mods remove`, then install and enable again); the manager stores a snapshot at install time.
 - **Font not applying.** The mod logs `font not found` for names that are not installed. `fc-list : family` lists what you have.
 - **Glass looks faint on a bright wallpaper.** Raise *Glass tint*.
 
 ## Credits and license
 
-[MIT licensed](LICENSE). Depth estimation uses [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2) (Small), in the ONNX export from [onnx-community](https://huggingface.co/onnx-community/depth-anything-v2-small); check the model card for its license terms. Built for the [Ambxst](https://github.com/Axenide/Ambxst) shell. The idea follows the Wallpaper Depth plugin for Noctalia Shell. Thanks to [POSiTiiiV](https://github.com/POSiTiiiV) ([Wallpaper Transitions](https://github.com/POSiTiiiV/ambxst-mods/tree/main/packages/wallpaper-transitions)) and [And0Null](https://github.com/And0Null) ([Desktop Widgets](https://github.com/And0Null/ambxst-mods/tree/main/packages/desktop-widgets)), whose mods this one is used alongside. Screenshot wallpapers belong to their respective creators.
+[MIT licensed](LICENSE). Depth estimation uses [Depth Anything V2](https://github.com/DepthAnything/Depth-Anything-V2) (Small), in the ONNX export from [onnx-community](https://huggingface.co/onnx-community/depth-anything-v2-small-ONNX). The Small model is Apache-2.0 licensed, according to its model card. Built for the [Ambxst](https://github.com/Axenide/Ambxst) shell. The idea follows the Wallpaper Depth plugin for Noctalia Shell. Thanks to [POSiTiiiV](https://github.com/POSiTiiiV) ([Wallpaper Transitions](https://github.com/POSiTiiiV/ambxst-mods/tree/main/packages/wallpaper-transitions)) and [And0Null](https://github.com/And0Null) ([Desktop Widgets](https://github.com/And0Null/ambxst-mods/tree/main/packages/desktop-widgets)), whose mods this one is used alongside. Screenshot wallpapers belong to their respective creators.
