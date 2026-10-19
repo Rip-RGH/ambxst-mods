@@ -12,7 +12,8 @@
     "ambxst": ">=1.3.0 <2.0.0",
     "testedBaseCommits": [
       "bc60230283a3822eec2e23c949f44990480d0f43",
-      "a912dfe487927f00599fff57af33d2fd5b2650e8"
+      "a912dfe487927f00599fff57af33d2fd5b2650e8",
+      "37ee0fcd13c8bf6fd2498e5322a175ac4edbc48f"
     ]
   },
   "dependencies": [],
