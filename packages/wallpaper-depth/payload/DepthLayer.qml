@@ -199,6 +199,8 @@ Item {
         bottomLeft: [0, 1], bottomCenter: [0.5, 1], bottomRight: [1, 1]
     })
     readonly property var anchorFrac: presets[clockPosition] || presets.center
+    readonly property real screenAspect: width > 0 && height > 0 ? width / height : 1
+    onScreenAspectChanged: remeasure.restart()
     readonly property real marginX: width * 0.05
     readonly property real marginY: height * 0.06
 
@@ -281,7 +283,7 @@ Item {
             'PY="$HOME/.local/share/ambxst/depth/venv/bin/python"; [ -x "$PY" ] || PY=python3; exec "$PY" "$@"',
             "sh", script, source, cutout, String(threshold), String(feather),
             String(clockCx), String(clockCy), String(clockW), String(clockH),
-            effectEnabled ? "depth" : "flat"];
+            effectEnabled ? "depth" : "flat", String(screenAspect)];
         gen.running = true;
     }
 

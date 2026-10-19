@@ -2,7 +2,7 @@
 """Wallpaper Depth: build an RGBA foreground cutout of a wallpaper, and measure
 how bright the wallpaper is behind the clock so the QML can pick text colour.
 
-usage: depth.py <wallpaper> <out.png> <threshold 0-100> <feather px> <clock x %> <clock y %> <clock w %> <clock h %> [depth|flat]
+usage: depth.py <wallpaper> <out.png> <threshold 0-100> <feather px> <clock x %> <clock y %> <clock w %> <clock h %> [depth|flat] [screen aspect ratio]
 
 (clock x/y = centre of the clock, w/h = its size, all as whole percents of the screen)
 
@@ -17,10 +17,11 @@ against the wallpaper's own edges (guided filter) so the cut follows real
 outlines instead of the model's coarse, blocky edges; it is then cut at the
 threshold with about one pixel of anti-aliasing, and finally feathered.
 
-The depth map is cached per wallpaper, so changing threshold/feather only
-redoes the cheap mask step. Outputs are written atomically.
+The depth map is cached per wallpaper content, so replacing an image at the same path is detected.
+Changing threshold/feather only redoes the cheap mask step. Outputs are written atomically.
 """
 import hashlib
+import math
 import os
 import sys
 
@@ -29,15 +30,43 @@ threshold, feather = int(sys.argv[3]), float(sys.argv[4])
 cxp, cyp, wp, hp = (int(a) for a in sys.argv[5:9])
 cx, cy = cxp / 100.0, cyp / 100.0
 flat = len(sys.argv) > 9 and sys.argv[9] == "flat"
+try:
+    screen_aspect = float(sys.argv[10]) if len(sys.argv) > 10 else None
+    if screen_aspect is not None and (not math.isfinite(screen_aspect) or screen_aspect <= 0):
+        screen_aspect = None
+except ValueError:
+    screen_aspect = None
+aspect_key = int(round(screen_aspect * 10000)) if screen_aspect is not None else 0
 
+
+def file_digest(path):
+    """Hash file contents, not its path, so replacing a wallpaper invalidates its caches."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+source_digest = file_digest(wall)
+# Auto-colour depends on the displayed crop and clock geometry. The content hash
+# also prevents stale readings when a wallpaper is overwritten in place.
 if flat:
-    # no cutout in this mode, so the cache name must not depend on threshold/feather
+    # No cutout in this mode, so threshold/feather do not affect the cache key.
     lum_path = os.path.join(
         os.path.dirname(out),
-        hashlib.md5(wall.encode()).hexdigest() + f"-flat-x{cxp}-y{cyp}-w{wp}-h{hp}.lum",
+        f"{source_digest}-flat-ar{aspect_key}-x{cxp}-y{cyp}-w{wp}-h{hp}.lum",
     )
 else:
-    lum_path = os.path.splitext(out)[0] + f"-x{cxp}-y{cyp}-w{wp}-h{hp}.lum"
+    lum_path = os.path.splitext(out)[0] + f"-src{source_digest[:16]}-ar{aspect_key}-x{cxp}-y{cyp}-w{wp}-h{hp}.lum"
+
+metadata_path = out + ".sourcehash"
+try:
+    with open(metadata_path, "r", encoding="ascii") as f:
+        cached_digest = f.read().strip()
+except OSError:
+    cached_digest = ""
+cutout_cache_valid = cached_digest == source_digest
 
 
 def write_atomic(path, data, binary=False):
@@ -48,7 +77,7 @@ def write_atomic(path, data, binary=False):
 
 
 # Fast path before the heavy imports: everything is already cached.
-if os.path.exists(lum_path) and (flat or os.path.exists(out)):
+if os.path.exists(lum_path) and (flat or (cutout_cache_valid and os.path.exists(out))):
     print(open(lum_path).read().strip())
     sys.exit(0)
 
@@ -63,8 +92,31 @@ os.makedirs(CACHE, exist_ok=True)
 img = Image.open(wall).convert("RGB")
 
 
-def clock_luminance(img, alpha, cx, cy, wp, hp):
-    """Median linear luminance of the background pixels behind the clock."""
+def center_crop_to_aspect(image, aspect):
+    """Match an Image.PreserveAspectCrop viewport, whose default alignment is centered."""
+    W, H = image.size
+    if W <= 0 or H <= 0 or aspect is None:
+        return image
+    image_aspect = W / H
+    if image_aspect > aspect:
+        crop_w = max(1, min(W, int(round(H * aspect))))
+        left = (W - crop_w) // 2
+        return image.crop((left, 0, left + crop_w, H))
+    if image_aspect < aspect:
+        crop_h = max(1, min(H, int(round(W / aspect))))
+        top = (H - crop_h) // 2
+        return image.crop((0, top, W, top + crop_h))
+    return image
+
+
+def clock_luminance(img, alpha, cx, cy, wp, hp, screen_aspect=None):
+    """Median linear luminance of the visible background pixels behind the clock."""
+    # QML renders both the original wallpaper and cutout with PreserveAspectCrop.
+    # Sample in that same centered viewport so auto-colour aligns on ultrawide,
+    # portrait, and mixed-aspect-ratio monitors.
+    if screen_aspect is not None:
+        img = center_crop_to_aspect(img, screen_aspect)
+        alpha = center_crop_to_aspect(alpha, screen_aspect)
     W, H = img.size
     hx = min(max(wp / 200.0, 0.02), 0.5)    # half the clock's width, as a fraction of the screen
     hy = min(max(hp / 200.0, 0.02), 0.5)    # half its height
@@ -176,19 +228,20 @@ def make_alpha(img, depth, threshold, feather):
 if flat:
     # Depth effect off: nothing is hidden behind a cutout, so every pixel counts.
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    L = clock_luminance(img, Image.new("L", img.size, 0), cx, cy, wp, hp)
+    L = clock_luminance(img, Image.new("L", img.size, 0), cx, cy, wp, hp, screen_aspect)
     write_atomic(lum_path, f"{L:.4f}\n")
     print(f"{L:.4f}")
     sys.exit(0)
 
-if os.path.exists(out):
-    # Cutout cached from an earlier run; only the luminance is missing.
+if cutout_cache_valid and os.path.exists(out):
+    # Cutout cached for these exact image contents; only the luminance is missing.
     alpha = Image.open(out).getchannel("A")
     if alpha.size != img.size:
         alpha = alpha.resize(img.size)
 else:
-    key = hashlib.md5(wall.encode()).hexdigest()
-    # "-v2": depth maps from before the aspect-preserving model input are not reused
+    key = source_digest
+    # "-v2": depth maps from before the aspect-preserving model input are not reused.
+    # Content-addressing also prevents a changed file at the same path from reusing old depth.
     dmap_path = os.path.join(CACHE, key + "-v2.npy")
 
     if os.path.exists(dmap_path):
@@ -209,6 +262,7 @@ else:
     cut.save(tmp, format="PNG")
     os.replace(tmp, out)
 
-L = clock_luminance(img, alpha, cx, cy, wp, hp)
+L = clock_luminance(img, alpha, cx, cy, wp, hp, screen_aspect)
 write_atomic(lum_path, f"{L:.4f}\n")
+write_atomic(metadata_path, source_digest + "\n")
 print(f"{L:.4f}")
