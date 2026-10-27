@@ -2,7 +2,7 @@
 """Wallpaper Depth: build an RGBA foreground cutout of a wallpaper, and measure
 how bright the wallpaper is behind the clock so the QML can pick text colour.
 
-usage: depth.py <wallpaper> <out.png> <threshold 0-100> <feather px> <clock x %> <clock y %> <clock w %> <clock h %> [depth|flat] [screen aspect ratio]
+usage: depth.py <wallpaper> <out.png> <threshold 0-100> <feather px> <clock x %> <clock y %> <clock w %> <clock h %> [depth|flat]
 
 (clock x/y = centre of the clock, w/h = its size, all as whole percents of the screen)
 
@@ -17,11 +17,11 @@ against the wallpaper's own edges (guided filter) so the cut follows real
 outlines instead of the model's coarse, blocky edges; it is then cut at the
 threshold with about one pixel of anti-aliasing, and finally feathered.
 
-The depth map is cached per wallpaper content, so replacing an image at the same path is detected.
-Changing threshold/feather only redoes the cheap mask step. Outputs are written atomically.
+The depth map is cached per wallpaper, so changing threshold/feather only
+redoes the cheap mask step. Outputs are written atomically.
 """
 import hashlib
-import math
+import io
 import os
 import sys
 
@@ -30,43 +30,15 @@ threshold, feather = int(sys.argv[3]), float(sys.argv[4])
 cxp, cyp, wp, hp = (int(a) for a in sys.argv[5:9])
 cx, cy = cxp / 100.0, cyp / 100.0
 flat = len(sys.argv) > 9 and sys.argv[9] == "flat"
-try:
-    screen_aspect = float(sys.argv[10]) if len(sys.argv) > 10 else None
-    if screen_aspect is not None and (not math.isfinite(screen_aspect) or screen_aspect <= 0):
-        screen_aspect = None
-except ValueError:
-    screen_aspect = None
-aspect_key = int(round(screen_aspect * 10000)) if screen_aspect is not None else 0
 
-
-def file_digest(path):
-    """Hash file contents, not its path, so replacing a wallpaper invalidates its caches."""
-    digest = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
-
-
-source_digest = file_digest(wall)
-# Auto-colour depends on the displayed crop and clock geometry. The content hash
-# also prevents stale readings when a wallpaper is overwritten in place.
 if flat:
-    # No cutout in this mode, so threshold/feather do not affect the cache key.
+    # no cutout in this mode, so the cache name must not depend on threshold/feather
     lum_path = os.path.join(
         os.path.dirname(out),
-        f"{source_digest}-flat-ar{aspect_key}-x{cxp}-y{cyp}-w{wp}-h{hp}.lum",
+        hashlib.md5(wall.encode()).hexdigest() + f"-flat-x{cxp}-y{cyp}-w{wp}-h{hp}.lum",
     )
 else:
-    lum_path = os.path.splitext(out)[0] + f"-src{source_digest[:16]}-ar{aspect_key}-x{cxp}-y{cyp}-w{wp}-h{hp}.lum"
-
-metadata_path = out + ".sourcehash"
-try:
-    with open(metadata_path, "r", encoding="ascii") as f:
-        cached_digest = f.read().strip()
-except OSError:
-    cached_digest = ""
-cutout_cache_valid = cached_digest == source_digest
+    lum_path = os.path.splitext(out)[0] + f"-x{cxp}-y{cyp}-w{wp}-h{hp}.lum"
 
 
 def write_atomic(path, data, binary=False):
@@ -77,7 +49,7 @@ def write_atomic(path, data, binary=False):
 
 
 # Fast path before the heavy imports: everything is already cached.
-if os.path.exists(lum_path) and (flat or (cutout_cache_valid and os.path.exists(out))):
+if os.path.exists(lum_path) and (flat or os.path.exists(out)):
     print(open(lum_path).read().strip())
     sys.exit(0)
 
@@ -92,31 +64,8 @@ os.makedirs(CACHE, exist_ok=True)
 img = Image.open(wall).convert("RGB")
 
 
-def center_crop_to_aspect(image, aspect):
-    """Match an Image.PreserveAspectCrop viewport, whose default alignment is centered."""
-    W, H = image.size
-    if W <= 0 or H <= 0 or aspect is None:
-        return image
-    image_aspect = W / H
-    if image_aspect > aspect:
-        crop_w = max(1, min(W, int(round(H * aspect))))
-        left = (W - crop_w) // 2
-        return image.crop((left, 0, left + crop_w, H))
-    if image_aspect < aspect:
-        crop_h = max(1, min(H, int(round(W / aspect))))
-        top = (H - crop_h) // 2
-        return image.crop((0, top, W, top + crop_h))
-    return image
-
-
-def clock_luminance(img, alpha, cx, cy, wp, hp, screen_aspect=None):
-    """Median linear luminance of the visible background pixels behind the clock."""
-    # QML renders both the original wallpaper and cutout with PreserveAspectCrop.
-    # Sample in that same centered viewport so auto-colour aligns on ultrawide,
-    # portrait, and mixed-aspect-ratio monitors.
-    if screen_aspect is not None:
-        img = center_crop_to_aspect(img, screen_aspect)
-        alpha = center_crop_to_aspect(alpha, screen_aspect)
+def clock_luminance(img, alpha, cx, cy, wp, hp):
+    """Median linear luminance of the background pixels behind the clock."""
     W, H = img.size
     hx = min(max(wp / 200.0, 0.02), 0.5)    # half the clock's width, as a fraction of the screen
     hy = min(max(hp / 200.0, 0.02), 0.5)    # half its height
@@ -183,6 +132,55 @@ def estimate_depth(img):
     raise last
 
 
+
+def estimate_segmentation(img):
+    """Return an optional foreground probability map, or None on any failure.
+
+    `rembg` provides maintained ONNX-backed IS-Net checkpoints. In auto mode,
+    averaging the general and anime predictors makes the feature useful across
+    mixed wallpaper libraries without trusting either model alone. It is an
+    optional enhancement: no rembg install or model-download failure preserves
+    the original depth-only behavior.
+    """
+    mode = os.environ.get("AMBXST_DEPTH_SEGMENTATION", "auto").strip().lower()
+    if mode in ("off", "0", "false", "no", "disabled"):
+        return None
+    if mode not in ("auto", "anime", "general"):
+        sys.stderr.write(f"unknown AMBXST_DEPTH_SEGMENTATION={mode!r}; using depth-only\n")
+        return None
+
+    try:
+        from rembg import new_session, remove
+    except Exception:
+        sys.stderr.write("segmentation unavailable (optional package 'rembg' is not installed); using depth-only\n")
+        return None
+
+    model_names = ["isnet-general-use", "isnet-anime"] if mode == "auto" else (
+        ["isnet-anime"] if mode == "anime" else ["isnet-general-use"]
+    )
+    predictions = []
+    for model_name in model_names:
+        try:
+            session = new_session(model_name)
+            mask = remove(img, session=session, only_mask=True, post_process_mask=False)
+            if not isinstance(mask, Image.Image):
+                if isinstance(mask, bytes):
+                    mask = Image.open(io.BytesIO(mask))
+                elif isinstance(mask, (str, os.PathLike)):
+                    mask = Image.open(mask)
+                else:
+                    mask = Image.fromarray(np.asarray(mask))
+            mask = mask.convert("L").resize(img.size, Image.LANCZOS)
+            predictions.append(np.asarray(mask, np.float32) / 255.0)
+        except Exception as e:  # optional model/download/runtime failure must not break wallpapers
+            sys.stderr.write(f"segmentation model {model_name} failed; continuing without it: {e}\n")
+
+    if not predictions:
+        return None
+    # Average rather than union: union tends to include background artifacts.
+    return np.mean(predictions, axis=0, dtype=np.float32)
+
+
 def box_mean(x, r):
     """Mean over a (2r+1)x(2r+1) window with replicated edges, via cumulative sums."""
     p = np.pad(x, ((r + 1, r), (r + 1, r)), mode="edge").astype(np.float64)
@@ -201,7 +199,7 @@ def guided_filter(guide, src, r, eps):
     return box_mean(a, r) * guide + box_mean(b, r)
 
 
-def make_alpha(img, depth, threshold, feather):
+def make_alpha(img, depth, threshold, feather, segmentation=None):
     W, H = img.size
     s = min(1.0, 2048.0 / max(W, H))            # work at <= 2048 px so 4K wallpapers stay cheap
     ww, wh = max(1, round(W * s)), max(1, round(H * s))
@@ -217,6 +215,19 @@ def make_alpha(img, depth, threshold, feather):
     # subject. Otherwise feathering spreads wallpaper pixels over the clock as a halo.
     sd -= 0.75 * feather * s
     a = np.clip(0.5 + sd / 2.4, 0.0, 1.0)       # ~1.2 px of anti-aliasing each side of the contour
+
+    # Segmentation is a subject prior, not a replacement for depth. It is only
+    # allowed to restore subject pixels where depth is near the chosen cutoff;
+    # this helps recover hair/clothing that depth alone places just behind the
+    # contour without making every salient object cover the clock unconditionally.
+    if segmentation is not None:
+        seg_img = Image.fromarray(np.uint8(np.clip(segmentation, 0.0, 1.0) * 255.0))
+        seg = np.asarray(seg_img.resize((ww, wh), Image.LANCZOS), np.float32) / 255.0
+        seg = np.clip(guided_filter(guide, seg, max(2, r // 2), 5e-4), 0.0, 1.0)
+        cutoff = threshold / 100.0
+        near_cutoff = np.clip((df - (cutoff - 0.22)) / 0.18, 0.0, 1.0)
+        a = np.maximum(a, seg * near_cutoff)
+
     alpha = Image.fromarray((a * 255.0 + 0.5).astype(np.uint8))
     if (ww, wh) != (W, H):
         alpha = alpha.resize((W, H), Image.BICUBIC)
@@ -228,20 +239,19 @@ def make_alpha(img, depth, threshold, feather):
 if flat:
     # Depth effect off: nothing is hidden behind a cutout, so every pixel counts.
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    L = clock_luminance(img, Image.new("L", img.size, 0), cx, cy, wp, hp, screen_aspect)
+    L = clock_luminance(img, Image.new("L", img.size, 0), cx, cy, wp, hp)
     write_atomic(lum_path, f"{L:.4f}\n")
     print(f"{L:.4f}")
     sys.exit(0)
 
-if cutout_cache_valid and os.path.exists(out):
-    # Cutout cached for these exact image contents; only the luminance is missing.
+if os.path.exists(out):
+    # Cutout cached from an earlier run; only the luminance is missing.
     alpha = Image.open(out).getchannel("A")
     if alpha.size != img.size:
         alpha = alpha.resize(img.size)
 else:
-    key = source_digest
-    # "-v2": depth maps from before the aspect-preserving model input are not reused.
-    # Content-addressing also prevents a changed file at the same path from reusing old depth.
+    key = hashlib.md5(wall.encode()).hexdigest()
+    # "-v2": depth maps from before the aspect-preserving model input are not reused
     dmap_path = os.path.join(CACHE, key + "-v2.npy")
 
     if os.path.exists(dmap_path):
@@ -253,7 +263,32 @@ else:
         depth = estimate_depth(img)
         np.save(dmap_path, depth)
 
-    alpha = make_alpha(img, depth, threshold, feather)
+    # Segmentation is cached independently of threshold and feather. Include the
+    # selected backend in the filename so changing the env setting cannot reuse
+    # a mask produced by another model combination.
+    seg_mode = os.environ.get("AMBXST_DEPTH_SEGMENTATION", "auto").strip().lower()
+    wall_stat = os.stat(wall)
+    seg_fingerprint = f"{wall}|{wall_stat.st_size}|{wall_stat.st_mtime_ns}|seg-v1|{seg_mode}"
+    seg_key = hashlib.md5(seg_fingerprint.encode()).hexdigest()
+    seg_path = os.path.join(CACHE, seg_key + "-seg.npy")
+    segmentation = None
+    if seg_mode not in ("off", "0", "false", "no", "disabled"):
+        if os.path.exists(seg_path):
+            try:
+                cached_seg = np.load(seg_path)
+                if cached_seg.shape == (img.height, img.width):
+                    segmentation = cached_seg
+            except Exception:
+                segmentation = None
+        if segmentation is None:
+            segmentation = estimate_segmentation(img)
+            if segmentation is not None:
+                tmp_seg = f"{seg_path}.{os.getpid()}.tmp"
+                with open(tmp_seg, "wb") as f:
+                    np.save(f, segmentation.astype(np.float32))
+                os.replace(tmp_seg, seg_path)
+
+    alpha = make_alpha(img, depth, threshold, feather, segmentation)
 
     cut = img.copy()
     cut.putalpha(alpha)
@@ -262,7 +297,6 @@ else:
     cut.save(tmp, format="PNG")
     os.replace(tmp, out)
 
-L = clock_luminance(img, alpha, cx, cy, wp, hp, screen_aspect)
+L = clock_luminance(img, alpha, cx, cy, wp, hp)
 write_atomic(lum_path, f"{L:.4f}\n")
-write_atomic(metadata_path, source_digest + "\n")
 print(f"{L:.4f}")

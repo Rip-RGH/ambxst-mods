@@ -22,6 +22,7 @@ A depth-effect clock for [Ambxst](https://github.com/Axenide/Ambxst): the time s
 - Ambxst `>=1.3.0 <2.0.0`
 - Python 3 with `onnxruntime`, `numpy` and `pillow`
 - The *Depth Anything V2 Small* model, about 99 MB in total (downloaded once, see below). Only needed for the depth effect; with it switched off, the clock still works without the model.
+- Optional: `rembg` for hybrid foreground segmentation. This improves subject edges on many anime illustrations and photos; if it is absent or its models fail to load, the original depth-only pipeline is used.
 - Qt 6.7 or newer for the *Smooth* text option. Older Qt falls back to *Standard* automatically.
 
 ## Install
@@ -32,6 +33,8 @@ A depth-effect clock for [Ambxst](https://github.com/Axenide/Ambxst): the time s
 mkdir -p ~/.local/share/ambxst/depth && cd ~/.local/share/ambxst/depth
 python3 -m venv venv
 ./venv/bin/pip install onnxruntime numpy pillow
+# Optional hybrid segmentation (recommended for best cutout quality)
+./venv/bin/pip install rembg
 curl -L -O https://huggingface.co/onnx-community/depth-anything-v2-small-ONNX/resolve/main/onnx/model.onnx
 curl -L -O https://huggingface.co/onnx-community/depth-anything-v2-small-ONNX/resolve/main/onnx/model.onnx_data
 ```
@@ -80,7 +83,7 @@ Changes apply live. Long clock formats shrink automatically to fit the screen.
 
 ## How it works
 
-1. When the wallpaper changes, a small Python script (`payload/depth.py`) estimates depth with the ONNX model, refines that depth map against the wallpaper's own edges so the cut follows real outlines, and writes a transparent PNG of the foreground to `~/.cache/ambxst/depth/`. Threshold and softness changes reuse the cached depth map, so they are fast.
+1. When the wallpaper changes, `payload/depth.py` estimates relative depth with Depth Anything V2. If optional `rembg` is installed, it also estimates a general foreground mask and an anime-aware mask; the masks are averaged when both are available and used only to recover likely subject pixels near the depth cutoff. This helps with hair and detailed silhouettes without letting segmentation completely replace depth ordering. Edge-aware refinement then creates the transparent foreground PNG in `~/.cache/ambxst/depth/`. Threshold/softness changes reuse cached model outputs.
 2. A QML layer (`payload/DepthLayer.qml`) stacks the clock behind that cutout, inside the wallpaper window.
 3. For auto color, the script also measures the brightness of the visible background behind the clock.
 4. The glass style (`payload/LiquidGlassText.qml`) is loaded only when enabled. It frosts and slightly magnifies the wallpaper inside the letters and adds a tint, edge light and shadow. It is an approximation built from Qt effects, not true refraction.
@@ -89,7 +92,8 @@ Changes apply live. Long clock formats shrink automatically to fit the screen.
 
 - Static image wallpapers only. Videos and GIFs are skipped.
 - A clock placed low on the screen can be hidden by the foreground. That is the effect working as intended; use the position presets or offsets to move it.
-- Foreground detection is only as good as the depth model. Low-contrast or busy wallpapers may need a different *Foreground threshold*.
+- Foreground detection is still an estimate. Hybrid segmentation can improve hair and subject outlines, but no single mask is perfect on every anime illustration, portrait, or landscape.
+- Set `AMBXST_DEPTH_SEGMENTATION=off` to force the original depth-only path, `anime` to use the anime model only, or `general` to use the general model only. The default `auto` mode tries both. The first enabled run can download model weights and take longer; subsequent masks are cached.
 
 ## Troubleshooting
 
