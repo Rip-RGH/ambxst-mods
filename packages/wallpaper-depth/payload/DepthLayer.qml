@@ -133,11 +133,23 @@ Item {
     // Qt format letters: 's' (outside quoted text) means seconds are shown.
     readonly property bool showsSeconds: activeFormat.replace(/'[^']*'/g, "").indexOf("s") >= 0
 
+    // Qt's normal weight request is enough for static font families. Variable
+    // fonts need the OpenType `wght` axis requested explicitly on Qt 6.7+;
+    // otherwise some faces can remain stuck at the font's default/minimum axis.
+    // Keep both maps: Font.* gives Qt its native named weight, while the axis
+    // values use the standard 100..900 scale defined by OpenType/CSS.
     readonly property var weights: ({
         thin: Font.Thin, extraLight: Font.ExtraLight, light: Font.Light,
         normal: Font.Normal, medium: Font.Medium, demiBold: Font.DemiBold,
         bold: Font.Bold, extraBold: Font.ExtraBold, black: Font.Black
     })
+    readonly property var weightAxisValues: ({
+        thin: 100, extraLight: 200, light: 300, normal: 400,
+        medium: 500, demiBold: 600, bold: 700, extraBold: 800, black: 900
+    })
+    // CurveRendering and variable font axis support were both added in Qt 6.7.
+    // This feature check avoids passing an unsupported property to older Qt.
+    readonly property bool supportsVariableFontAxes: Text.CurveRendering !== undefined
     // Text anti-aliasing. "smooth" uses Qt's curve renderer (Qt 6.7+), which draws
     // large glyphs from their outlines with sharp corners and clean edges; older
     // Qt falls back to the standard renderer. "native" uses the font's own hinted
@@ -151,13 +163,44 @@ Item {
     }
     readonly property real glassSupersample: textSmoothing === "standard" ? 1 : 2
 
+    // Apple's SF Pro family is commonly installed as separate static OTF faces
+    // whose names are not the same as Qt's generic weight labels (for example,
+    // weight 100 is named "Ultralight", while 200 is "Thin"). Asking Qt for a
+    // named style makes it select the matching installed face instead of relying
+    // solely on fontconfig's weight matching. The same names are named instances
+    // in variable builds, so this works for both the static and variable variants.
+    readonly property var sfProStyleNamesByWeight: ({
+        "100": "Ultralight", "200": "Thin", "300": "Light",
+        "400": "Regular", "500": "Medium", "600": "Semibold",
+        "700": "Bold", "800": "Heavy", "900": "Black"
+    })
+
+    function isSfProFamily(name) {
+        const normalized = String(name).trim().toLowerCase();
+        return normalized === "sf pro" || normalized === "sf pro display"
+            || normalized === "sf pro text" || normalized === "sf pro rounded";
+    }
+
     function makeFont(px) {
+        const weightValue = weightAxisValues[fontWeightName] ?? 700;
         const f = {
             pixelSize: Math.max(8, Math.round(px)),
             weight: weights[fontWeightName] ?? Font.Bold
         };
         if (fontFamily !== "")
             f.family = fontFamily;
+
+        if (isSfProFamily(fontFamily)) {
+            // `styleName` takes precedence over numeric weight, which is useful
+            // here because each installed SF Pro OTF has an explicit subfamily.
+            // It also selects named instances in Qt 6.7+ variable fonts.
+            f.styleName = sfProStyleNamesByWeight[String(weightValue)] ?? "Bold";
+        } else if (supportsVariableFontAxes) {
+            // General variable fonts use their OpenType weight axis. Static fonts
+            // continue to use Qt's usual closest-weight face matching.
+            f.variableAxes = ({ "wght": weightValue });
+        }
+
         return Qt.font(f);
     }
 
@@ -199,8 +242,6 @@ Item {
         bottomLeft: [0, 1], bottomCenter: [0.5, 1], bottomRight: [1, 1]
     })
     readonly property var anchorFrac: presets[clockPosition] || presets.center
-    readonly property real screenAspect: width > 0 && height > 0 ? width / height : 1
-    onScreenAspectChanged: remeasure.restart()
     readonly property real marginX: width * 0.05
     readonly property real marginY: height * 0.06
 
@@ -283,7 +324,7 @@ Item {
             'PY="$HOME/.local/share/ambxst/depth/venv/bin/python"; [ -x "$PY" ] || PY=python3; exec "$PY" "$@"',
             "sh", script, source, cutout, String(threshold), String(feather),
             String(clockCx), String(clockCy), String(clockW), String(clockH),
-            effectEnabled ? "depth" : "flat", String(screenAspect)];
+            effectEnabled ? "depth" : "flat"];
         gen.running = true;
     }
 
