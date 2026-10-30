@@ -9,7 +9,7 @@ A depth-effect clock for [Ambxst](https://github.com/Axenide/Ambxst): the time s
 - **Depth effect.** A local depth model finds the foreground of each wallpaper and cuts it out; the clock is drawn behind the cutout. Switch it off and the clock simply sits on top of the wallpaper (no model needed).
 - **Liquid glass style.** Toggle between solid text and a layered glass treatment with background sampling, subtle lensing, adaptive tint, angled highlights, paired edge rims and soft shadow. Frost, tint and edge light remain adjustable.
 - **Auto text color.** Solid text switches between light and dark depending on how bright the wallpaper is *behind the clock*, wherever you put it.
-- **Fully configurable from Settings → Mods.** Format (12/24-hour, seconds, custom), font, weight, size, text smoothing, and nine position presets with fine offsets.
+- **Fully configurable from Settings → Mods.** Format (12/24-hour, seconds, custom), font, weight, adaptive clock spacing, size, text smoothing, and nine position presets with fine offsets.
 - **Fast and private.** Everything runs locally. Each wallpaper is analysed once and cached.
 - **Plays well with others.** Composes with [Wallpaper Transitions](https://github.com/POSiTiiiV/ambxst-mods/tree/main/packages/wallpaper-transitions) by [POSiTiiiV](https://github.com/POSiTiiiV) and [Desktop Widgets](https://github.com/And0Null/ambxst-mods/tree/main/packages/desktop-widgets) by [And0Null](https://github.com/And0Null).
 
@@ -23,7 +23,7 @@ A depth-effect clock for [Ambxst](https://github.com/Axenide/Ambxst): the time s
 - Python 3 with `onnxruntime`, `numpy` and `pillow`
 - The *Depth Anything V2 Small* model, about 99 MB in total (downloaded once, see below). Only needed for the depth effect; with it switched off, the clock still works without the model.
 - Optional: `rembg` for hybrid foreground segmentation. This improves subject edges on many anime illustrations and photos; if it is absent or its models fail to load, the original depth-only pipeline is used.
-- Qt 6.7 or newer for the *Smooth* text option and explicit variable-font weight-axis control. Older Qt falls back to standard text rendering and native static-face weight matching.
+- Qt 6.7 or newer for the *Smooth* text option, variable-font axes (`wght` and `opsz`), and optical-size-aware tracking. Older Qt falls back to standard text rendering and native static-face weight matching.
 
 ## Install
 
@@ -65,7 +65,8 @@ Then open **Settings → Mods → Wallpaper Depth**. The first time a wallpaper 
 | **Clock format** | 24-hour (14:05) | 24-hour (14:05), 24-hour with seconds (14:05:09), 12-hour (2:05 PM), 12-hour with seconds (2:05:09 PM), Custom | How the time is written. |
 | **Custom format** | `HH:mm` | text | Only used when Clock format is Custom. |
 | **Font** | empty | text | Name of an installed font family, for example Inter or JetBrains Mono (run fc-list : family to see what you have). |
-| **Font weight** | Bold | Thin, Extra light, Light, Regular, Medium, Semi-bold, Bold, Extra bold, Black | Thickness of the clock text. SF Pro, SF Pro Display, SF Pro Text, and SF Pro Rounded use explicit named styles (Ultralight through Black) so separate installed OTF faces are selected correctly. Other variable fonts receive an explicit `wght` axis request on Qt 6.7+; static fonts use Qt’s closest available face. |
+| **Font weight** | Bold | Thin, Extra light, Light, Regular, Medium, Semi-bold, Bold, Extra bold, Black | Thickness of the clock text. SF Pro families use explicit named styles; variable fonts use their `wght` axis on Qt 6.7+. |
+| **Clock spacing** | Auto (recommended) | Auto, Tight, Natural | Adjusts tracking between characters. Auto gently tightens large, light-weight clocks and requests an optical-size axis where the selected variable font supports it. Tight applies stronger correction; Natural preserves the font’s native spacing. |
 | **Text smoothing** | Smooth (recommended) | Smooth (recommended), Standard, Native | How the clock's edges are drawn. |
 | **Clock size, percent of screen height** | 22 | 5 to 40 | Height of the clock text relative to the screen. |
 | **Clock color** | Auto (match wallpaper) | Auto (match wallpaper), Light, Dark, Theme | Auto picks light or dark text from how bright the wallpaper is behind the clock. |
@@ -99,7 +100,7 @@ Changes apply live. Long clock formats shrink automatically to fit the screen.
 
 - **No clock appears.** Switch *Depth effect* off: if the clock shows up, the problem is the depth setup. Check that both `~/.local/share/ambxst/depth/model.onnx` and `model.onnx_data` exist, and run `ambxst reload` in a terminal to see any `wallpaper-depth:` messages.
 - **The Settings section is missing.** Reinstall the mod (`ambxst mods remove`, then install and enable again); the manager stores a snapshot at install time.
-- **Font or weight not applying.** The mod logs `font not found` for names that are not installed. Use `fc-list : family style | grep -i {font-name}` to check the exact installed font family names and styles, then enter the family name shown by that command. For SF Pro families, the mod requests named styles such as Ultralight, Thin, Semibold, and Heavy directly. For other variable fonts, axis control requires Qt 6.7+; static font files use Qt’s closest matching face.
+- **Font or weight not applying.** The mod logs `font not found` for names that are not installed. Use `fc-list : family style | grep -i 'SF Pro'` to check the exact installed SF Pro family names and styles, then enter the family name shown by that command. For SF Pro families, the mod requests named styles such as Ultralight, Thin, Semibold, and Heavy directly. Variable-font axis control and optical sizing require Qt 6.7+; static font files use Qt’s closest matching face. Use *Clock spacing → Natural* if a font already has tight spacing, or *Tight* for a more compact display-clock look.
 - **Glass looks faint on a bright wallpaper.** Raise *Glass tint*.
 
 ## Credits and license
