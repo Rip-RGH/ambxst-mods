@@ -258,13 +258,31 @@ Item {
     }
     onFontFamilyChanged: checkFont()
 
-    // Layout uses a sample with every digit set to "0", so the clock doesn't
-    // shuffle sideways each minute as digit widths change.
+    // Measure the live string for an accurate depth bounding box. Horizontal
+    // placement is anchored to the centre of the first colon below, so changing
+    // digit widths can change the left edge without moving the clock's anchor.
+    readonly property string clockTextValue: Qt.formatDateTime(clock.date, activeFormat)
     TextMetrics {
         id: sizer
         font: root.clockFont
-        text: Qt.formatDateTime(clock.date, root.activeFormat).replace(/[0-9]/g, "0")
+        text: root.clockTextValue
     }
+    readonly property int colonIndex: clockTextValue.indexOf(":")
+    TextMetrics {
+        id: colonPrefixMetrics
+        font: root.clockFont
+        text: root.colonIndex >= 0 ? root.clockTextValue.slice(0, root.colonIndex) : ""
+    }
+    TextMetrics {
+        id: colonThroughMetrics
+        font: root.clockFont
+        text: root.colonIndex >= 0 ? root.clockTextValue.slice(0, root.colonIndex + 1) : ""
+    }
+    // TextMetrics measures shaped prefixes independently. Averaging the width
+    // before and after the colon gives its visual centre, including kerning.
+    readonly property real colonAnchorOffset: colonIndex >= 0
+        ? (colonPrefixMetrics.width + colonThroughMetrics.width) / 2
+        : sizer.width / 2
 
     // ---- Clock placement -------------------------------------------------
     // Preset = (horizontal, vertical) as 0 / 0.5 / 1 across the screen. Edge
@@ -282,8 +300,13 @@ Item {
         return Math.max(lo, Math.min(hi, v));
     }
 
+    // The horizontal preset now positions the colon itself, not the changing
+    // left/right bounds of the string. This keeps the clock visually anchored
+    // when fonts use proportional digits (e.g. 1 is narrower than 8).
+    readonly property real clockAnchorX: marginX + (width - 2 * marginX) * anchorFrac[0]
+        + width * offsetX / 100
     readonly property real clockX: clamp(
-        marginX + (width - sizer.width - 2 * marginX) * anchorFrac[0] + width * offsetX / 100,
+        clockAnchorX - colonAnchorOffset,
         0, Math.max(0, width - sizer.width))
     readonly property real clockY: clamp(
         marginY + (height - sizer.height - 2 * marginY) * anchorFrac[1] + height * offsetY / 100,
@@ -291,7 +314,7 @@ Item {
 
     // Clock centre as whole percents of the screen: depth.py measures the
     // wallpaper brightness there. Debounced so dragging a value doesn't spam it.
-    readonly property int clockCx: width > 0 ? Math.round((clockX + sizer.width / 2) / width * 100) : 50
+    readonly property int clockCx: width > 0 ? Math.round((clockX + colonAnchorOffset) / width * 100) : 50
     readonly property int clockCy: height > 0 ? Math.round((clockY + sizer.height / 2) / height * 100) : 50
     readonly property int clockW: width > 0 ? Math.max(1, Math.round(sizer.width / width * 100)) : 30
     readonly property int clockH: height > 0 ? Math.max(1, Math.round(sizer.height / height * 100)) : 20
@@ -411,7 +434,7 @@ Item {
             }
         }
         renderType: root.textRenderType
-        text: Qt.formatDateTime(clock.date, root.activeFormat)
+        text: root.clockTextValue
         color: root.clockFill
         Behavior on color {
             ColorAnimation {
