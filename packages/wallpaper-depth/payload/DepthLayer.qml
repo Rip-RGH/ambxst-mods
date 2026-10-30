@@ -34,6 +34,7 @@ Item {
     property string textSmoothing: "smooth" // smooth | standard | native
     property string fontFamily: ""          // "" = default font
     property string fontWeightName: "bold"
+    property string clockSpacing: "auto" // auto | tight | natural
     property int offsetX: 0         // % of screen width, fine-tune on top of the preset
     property int offsetY: 0         // % of screen height
     property bool settingsLoaded: false
@@ -84,6 +85,8 @@ Item {
             fontFamily = String(value).trim();
         else if (key === "fontWeight")
             fontWeightName = String(value);
+        else if (key === "clockSpacing")
+            clockSpacing = String(value);
         else if (key === "offsetX")
             offsetX = Number(value);
         else if (key === "offsetY")
@@ -174,6 +177,24 @@ Item {
         "400": "Regular", "500": "Medium", "600": "Semibold",
         "700": "Bold", "800": "Heavy", "900": "Black"
     })
+    // Optical tracking is most noticeable on large, light-weight display clocks.
+    // The values below are fractions of the em size; they become absolute pixel
+    // spacing only when the font is built, so the result scales with clock size.
+    readonly property var trackingByWeight: ({
+        thin: 0.025, extraLight: 0.022, light: 0.019,
+        normal: 0.015, medium: 0.012, demiBold: 0.009,
+        bold: 0.006, extraBold: 0.003, black: 0.0015
+    })
+
+    function clockTracking(px) {
+        if (clockSpacing === "natural")
+            return 0;
+        const strength = trackingByWeight[fontWeightName] ?? 0.010;
+        // Do not tighten small widget-sized clocks as aggressively as display clocks.
+        const sizeFactor = clamp((px - 28) / 112, 0, 1);
+        const modeFactor = clockSpacing === "tight" ? 1.45 : 1.0;
+        return -Math.min(px * 0.040, px * strength * sizeFactor * modeFactor);
+    }
 
     function isSfProFamily(name) {
         const normalized = String(name).trim().toLowerCase();
@@ -182,23 +203,35 @@ Item {
     }
 
     function makeFont(px) {
+        const size = Math.max(8, Math.round(px));
         const weightValue = weightAxisValues[fontWeightName] ?? 700;
+        const sfPro = isSfProFamily(fontFamily);
         const f = {
-            pixelSize: Math.max(8, Math.round(px)),
-            weight: weights[fontWeightName] ?? Font.Bold
+            pixelSize: size,
+            weight: weights[fontWeightName] ?? Font.Bold,
+            // QML letterSpacing is an absolute pixel adjustment between glyphs.
+            // Keep it proportional to the rendered size for stable tracking.
+            letterSpacing: clockTracking(size),
+            kerning: true
         };
         if (fontFamily !== "")
             f.family = fontFamily;
 
-        if (isSfProFamily(fontFamily)) {
-            // `styleName` takes precedence over numeric weight, which is useful
-            // here because each installed SF Pro OTF has an explicit subfamily.
-            // It also selects named instances in Qt 6.7+ variable fonts.
+        if (sfPro) {
+            // `styleName` selects the installed SF Pro face (including static OTFs).
+            // Keep this mapping intact; the optical-size axis below is independent.
             f.styleName = sfProStyleNamesByWeight[String(weightValue)] ?? "Bold";
-        } else if (supportsVariableFontAxes) {
-            // General variable fonts use their OpenType weight axis. Static fonts
-            // continue to use Qt's usual closest-weight face matching.
-            f.variableAxes = ({ "wght": weightValue });
+        }
+
+        if (supportsVariableFontAxes) {
+            // Ask variable fonts to use their display-appropriate optical size.
+            // Fonts without an `opsz` axis simply ignore it. For SF Pro, weight is
+            // still selected by its explicit style name so static installations
+            // continue to work exactly as before.
+            const axes = ({ "opsz": Math.max(6, Math.min(96, size * 0.75)) });
+            if (!sfPro)
+                axes["wght"] = weightValue;
+            f.variableAxes = axes;
         }
 
         return Qt.font(f);

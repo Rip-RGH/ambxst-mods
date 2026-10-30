@@ -77,7 +77,7 @@
     {
       "key": "glassHighlight",
       "label": "Glass edge highlight",
-      "description": "Strength of the light along the edges of the letters. Liquid glass style only.",
+      "description": "Controls the glass surface sheen and bright/dark edge rims. Liquid glass style only.",
       "type": "enum",
       "default": "medium",
       "options": [
@@ -145,7 +145,7 @@
     {
       "key": "fontWeight",
       "label": "Font weight",
-      "description": "Thickness of the clock text. If the font doesn't have the chosen weight, the nearest one it has is used.",
+      "description": "Thickness of the clock text. SF Pro, SF Pro Display, SF Pro Text, and SF Pro Rounded use their named weight faces; other variable fonts use the wght axis on Qt 6.7+, while static fonts use Qt’s closest matching face.",
       "type": "enum",
       "default": "bold",
       "options": [
@@ -184,6 +184,27 @@
         {
           "label": "Black",
           "value": "black"
+        }
+      ]
+    },
+    {
+      "key": "clockSpacing",
+      "label": "Clock spacing",
+      "description": "Controls the spacing between clock characters. Auto applies size- and weight-aware optical tightening for large clocks; Tight uses stronger tracking correction; Natural keeps the font’s built-in spacing.",
+      "type": "enum",
+      "default": "auto",
+      "options": [
+        {
+          "label": "Auto (recommended)",
+          "value": "auto"
+        },
+        {
+          "label": "Tight",
+          "value": "tight"
+        },
+        {
+          "label": "Natural",
+          "value": "natural"
         }
       ]
     },
