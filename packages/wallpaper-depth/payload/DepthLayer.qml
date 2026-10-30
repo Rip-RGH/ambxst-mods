@@ -306,7 +306,7 @@ Item {
     readonly property real clockAnchorX: marginX + (width - 2 * marginX) * anchorFrac[0]
         + width * offsetX / 100
     readonly property real clockX: clamp(
-        clockAnchorX - colonAnchorOffset,
+        clockAnchorX - colonAnchorOffset -25,
         0, Math.max(0, width - sizer.width))
     readonly property real clockY: clamp(
         marginY + (height - sizer.height - 2 * marginY) * anchorFrac[1] + height * offsetY / 100,
