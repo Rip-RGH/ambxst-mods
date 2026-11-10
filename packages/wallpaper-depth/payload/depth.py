@@ -24,6 +24,7 @@ import hashlib
 import io
 import os
 import sys
+import time
 
 wall, out = sys.argv[1], sys.argv[2]
 threshold, feather = int(sys.argv[3]), float(sys.argv[4])
@@ -31,15 +32,26 @@ cxp, cyp, wp, hp = (int(a) for a in sys.argv[5:9])
 cx, cy = cxp / 100.0, cyp / 100.0
 flat = len(sys.argv) > 9 and sys.argv[9] == "flat"
 
-if flat:
-    # no cutout in this mode, so the cache name must not depend on threshold/feather
-    lum_path = os.path.join(
-        os.path.dirname(out),
-        hashlib.md5(wall.encode()).hexdigest() + f"-flat-x{cxp}-y{cyp}-w{wp}-h{hp}.lum",
-    )
-else:
-    lum_path = os.path.splitext(out)[0] + f"-x{cxp}-y{cyp}-w{wp}-h{hp}.lum"
+DATA = os.path.expanduser("~/.local/share/ambxst/depth")
+CACHE = os.path.expanduser("~/.cache/ambxst/depth")
+MODEL = os.path.join(DATA, "model.onnx")
+os.makedirs(CACHE, exist_ok=True)
 
+def file_fingerprint(path):
+    """SHA-256 of wallpaper contents, streamed to avoid loading it into RAM."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+fingerprint = file_fingerprint(wall)
+base_key = fingerprint[:32]
+if flat:
+    lum_path = os.path.join(CACHE, f"{base_key}-flat-x{cxp}-y{cyp}-w{wp}-h{hp}.lum")
+else:
+    lum_path = os.path.splitext(out)[0] + f"-{base_key[:12]}-x{cxp}-y{cyp}-w{wp}-h{hp}.lum"
+meta_path = out + ".meta"
 
 def write_atomic(path, data, binary=False):
     tmp = f"{path}.{os.getpid()}.tmp"
@@ -47,11 +59,60 @@ def write_atomic(path, data, binary=False):
         f.write(data)
     os.replace(tmp, path)
 
+def prune_cache(protected=()):
+    """Evict least-recently-used cache files until within the configured budget."""
+    try:
+        limit = max(64, int(os.environ.get("AMBXST_DEPTH_CACHE_MB", "512"))) * 1024 * 1024
+    except ValueError:
+        limit = 512 * 1024 * 1024
+    protected = {os.path.abspath(x) for x in protected if x}
+    entries, total = [], 0
+    now = time.time()
+    for name in os.listdir(CACHE):
+        path = os.path.join(CACHE, name)
+        try:
+            if not os.path.isfile(path):
+                continue
+            st = os.stat(path)
+            if name.endswith(".tmp") and now - st.st_mtime > 86400:
+                os.unlink(path)
+                continue
+            total += st.st_size
+            if os.path.abspath(path) not in protected and not name.endswith(".tmp"):
+                entries.append((st.st_mtime, path, st.st_size))
+        except OSError:
+            continue
+    for _, path, size in sorted(entries):
+        if total <= limit:
+            break
+        try:
+            os.unlink(path)
+            total -= size
+        except OSError:
+            pass
 
-# Fast path before the heavy imports: everything is already cached.
-if os.path.exists(lum_path) and (flat or os.path.exists(out)):
-    print(open(lum_path).read().strip())
-    sys.exit(0)
+seg_mode = os.environ.get("AMBXST_DEPTH_SEGMENTATION", "auto").strip().lower()
+expected_meta = f"{fingerprint}:{threshold}:{feather}:{seg_mode}:quality-v4"
+# Fast path before heavy imports. Never trust a path-only cache hit.
+if flat and os.path.exists(lum_path):
+    try:
+        print(open(lum_path).read().strip())
+        os.utime(lum_path, None)
+        prune_cache((lum_path,))
+        sys.exit(0)
+    except OSError:
+        pass
+if not flat and os.path.exists(lum_path) and os.path.exists(out) and os.path.exists(meta_path):
+    try:
+        if open(meta_path).read().strip() == expected_meta:
+            print(open(lum_path).read().strip())
+            os.utime(out, None)
+            os.utime(meta_path, None)
+            os.utime(lum_path, None)
+            prune_cache((out, meta_path, lum_path))
+            sys.exit(0)
+    except OSError:
+        pass
 
 import numpy as np
 from PIL import Image, ImageFilter
@@ -87,12 +148,12 @@ def clock_luminance(img, alpha, cx, cy, wp, hp):
 
 def model_size(inp, W, H):
     """Fixed-size models keep their size. Models with dynamic height/width get an
-    aspect-preserving size (multiples of 14, long side 1036) instead of being
+    aspect-preserving size (multiples of 14, quality-oriented long side) instead of being
     squashed to a square, which gives much finer edges."""
     h, w = inp.shape[2], inp.shape[3]
     if isinstance(h, int) and isinstance(w, int):
         return w, h
-    s = 1036.0 / max(W, H)
+    s = float(os.environ.get("AMBXST_DEPTH_MAX_SIDE", "1036")) / max(W, H)
     return max(14, round(W * s / 14) * 14), max(14, round(H * s / 14) * 14)
 
 
@@ -100,7 +161,13 @@ def estimate_depth(img):
     import onnxruntime as ort
 
     try:
-        sess = ort.InferenceSession(MODEL, providers=["CPUExecutionProvider"])
+        options = ort.SessionOptions()
+        options.intra_op_num_threads = max(1, min(4, os.cpu_count() or 2))
+        options.inter_op_num_threads = 1
+        options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        sess = ort.InferenceSession(MODEL, sess_options=options,
+                                   providers=["CPUExecutionProvider"])
     except Exception as e:                      # noqa: BLE001 - turn it into something readable
         sys.stderr.write(f"could not load the depth model {MODEL}: {e}\n")
         data = MODEL + "_data"
@@ -138,7 +205,8 @@ def estimate_segmentation(img):
 
     `rembg` provides maintained ONNX-backed IS-Net checkpoints. In auto mode,
     averaging the general and anime predictors makes the feature useful across
-    mixed wallpaper libraries without trusting either model alone. It is an
+    mixed wallpaper libraries without trusting either model alone. This quality
+    mode intentionally trades extra first-run CPU time for more robust masks. It is an
     optional enhancement: no rembg install or model-download failure preserves
     the original depth-only behavior.
     """
@@ -242,34 +310,36 @@ if flat:
     L = clock_luminance(img, Image.new("L", img.size, 0), cx, cy, wp, hp)
     write_atomic(lum_path, f"{L:.4f}\n")
     print(f"{L:.4f}")
+    prune_cache((lum_path,))
     sys.exit(0)
 
-if os.path.exists(out):
-    # Cutout cached from an earlier run; only the luminance is missing.
+valid_output = False
+if os.path.exists(out) and os.path.exists(meta_path):
+    try:
+        valid_output = open(meta_path).read().strip() == expected_meta
+    except OSError:
+        pass
+
+if valid_output:
     alpha = Image.open(out).getchannel("A")
     if alpha.size != img.size:
         alpha = alpha.resize(img.size)
 else:
-    key = hashlib.md5(wall.encode()).hexdigest()
-    # "-v2": depth maps from before the aspect-preserving model input are not reused
-    dmap_path = os.path.join(CACHE, key + "-v2.npy")
-
+    dmap_path = os.path.join(CACHE, base_key + "-depth-v4.npy")
     if os.path.exists(dmap_path):
         depth = np.load(dmap_path)
+        os.utime(dmap_path, None)
     else:
         if not os.path.exists(MODEL):
             sys.stderr.write(f"depth model missing: {MODEL} (see README)\n")
             sys.exit(2)
         depth = estimate_depth(img)
-        np.save(dmap_path, depth)
+        tmp_depth = f"{dmap_path}.{os.getpid()}.tmp"
+        with open(tmp_depth, "wb") as f:
+            np.save(f, depth.astype(np.float32))
+        os.replace(tmp_depth, dmap_path)
 
-    # Segmentation is cached independently of threshold and feather. Include the
-    # selected backend in the filename so changing the env setting cannot reuse
-    # a mask produced by another model combination.
-    seg_mode = os.environ.get("AMBXST_DEPTH_SEGMENTATION", "auto").strip().lower()
-    wall_stat = os.stat(wall)
-    seg_fingerprint = f"{wall}|{wall_stat.st_size}|{wall_stat.st_mtime_ns}|seg-v1|{seg_mode}"
-    seg_key = hashlib.md5(seg_fingerprint.encode()).hexdigest()
+    seg_key = hashlib.sha256(f"{fingerprint}|seg-v2|{seg_mode}".encode()).hexdigest()[:32]
     seg_path = os.path.join(CACHE, seg_key + "-seg.npy")
     segmentation = None
     if seg_mode not in ("off", "0", "false", "no", "disabled"):
@@ -278,6 +348,7 @@ else:
                 cached_seg = np.load(seg_path)
                 if cached_seg.shape == (img.height, img.width):
                     segmentation = cached_seg
+                    os.utime(seg_path, None)
             except Exception:
                 segmentation = None
         if segmentation is None:
@@ -296,7 +367,9 @@ else:
     tmp = f"{out}.{os.getpid()}.tmp"
     cut.save(tmp, format="PNG")
     os.replace(tmp, out)
+    write_atomic(meta_path, expected_meta + "\n")
 
 L = clock_luminance(img, alpha, cx, cy, wp, hp)
 write_atomic(lum_path, f"{L:.4f}\n")
 print(f"{L:.4f}")
+prune_cache((out, meta_path, lum_path, locals().get("dmap_path"), locals().get("seg_path")))

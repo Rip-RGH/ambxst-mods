@@ -346,11 +346,9 @@ Item {
     property bool settled: false        // the script has finished for the current wallpaper
     property bool pending: false
 
-    // Depth on: wait for the cutout. Depth off: no cutout is needed, so show the
-    // clock on top of the wallpaper as soon as the brightness has been measured.
-    readonly property bool showing: effectEnabled
-        ? fg.status === Image.Ready
-        : (settled && source !== "")
+    // Show the clock as soon as settings are loaded. The foreground cutout is
+    // layered over it when processing finishes, rather than blocking the clock.
+    readonly property bool showing: settingsLoaded && source !== ""
 
     // The solid Text doubles as the layout/animation source for the glass style.
     readonly property Item textItem: clockText
